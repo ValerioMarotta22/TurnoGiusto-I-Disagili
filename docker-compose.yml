@@ -1,0 +1,41 @@
+# Database MySQL per lo sviluppo locale di TurnoGiusto.
+#
+#   Avvio:             docker compose up -d
+#   Stato:             docker compose ps
+#   Stop (dati ok):    docker compose down
+#   Reset completo:    docker compose down -v
+#                      (cancella i dati e rilancia gli script in db/init, che
+#                       partono SOLO alla prima creazione del database)
+#
+# Le credenziali sono di sviluppo e valgono solo sul proprio PC (la porta e'
+# esposta soltanto su localhost). Per cambiarle: copia .env.example in .env.
+
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-turnogiusto}
+      MYSQL_USER: ${MYSQL_USER:-turnogiusto}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-turnogiusto}
+      TZ: Europe/Rome
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "127.0.0.1:${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # -h 127.0.0.1 forza la connessione TCP: durante l'inizializzazione il
+      # server temporaneo risponde solo via socket e non va considerato pronto.
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+volumes:
+  db_data:
