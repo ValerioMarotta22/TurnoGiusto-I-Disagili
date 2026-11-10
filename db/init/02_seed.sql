@@ -5,30 +5,38 @@
 -- =====================================================================
 SET NAMES utf8mb4;
 
-INSERT INTO dipendente (id, nome, cognome, ruolo_id) VALUES
-    (1, 'Mario',  'Rossi',   1),  -- cuoco
-    (2, 'Giulia', 'Bianchi', 1),  -- cuoco
-    (3, 'Luca',   'Verdi',   2),  -- aiuto cuoco
-    (4, 'Sara',   'Neri',    3),  -- cameriere
-    (5, 'Anna',   'Gialli',  3),  -- cameriere
-    (6, 'Paolo',  'Blu',     4);  -- lavapiatti
+INSERT INTO dipendente (id, nome, cognome, ruolo) VALUES
+                                                      (1, 'Mario',  'Rossi',   'CUOCO'),
+                                                      (2, 'Giulia', 'Bianchi', 'CUOCO'),
+                                                      (3, 'Luca',   'Verdi',   'AIUTO_CUOCO'),
+                                                      (4, 'Sara',   'Neri',    'CAMERIERE'),
+                                                      (5, 'Anna',   'Gialli',  'CAMERIERE'),
+                                                      (6, 'Paolo',  'Blu',     'LAVAPIATTI');
 
-INSERT INTO contratto (dipendente_id, tipo, monte_ore_settimanali, costo_orario, data_inizio) VALUES
-    (1, 'TEMPO_PIENO', 40.0, 14.50, '2025-01-01'),
-    (2, 'PART_TIME',   24.0, 12.00, '2025-03-01'),
-    (3, 'TEMPO_PIENO', 40.0, 11.00, '2025-01-01'),
-    (4, 'PART_TIME',   20.0,  9.50, '2025-06-01'),
-    (5, 'TEMPO_PIENO', 40.0, 10.00, '2025-01-01'),
-    (6, 'PART_TIME',   16.0,  8.50, '2025-09-01');
+-- Sara (id 4) ha uno storico: un vecchio contratto chiuso e quello attuale.
+INSERT INTO contratto (dipendente_id, tipo, ore_settimanali, costo_orario, data_inizio, data_fine) VALUES
+                                                                                                       (1, 'FULL_TIME', 40, 14.50, '2025-01-01', NULL),
+                                                                                                       (2, 'PART_TIME', 24, 12.00, '2025-03-01', NULL),
+                                                                                                       (3, 'FULL_TIME', 40, 11.00, '2025-01-01', NULL),
+                                                                                                       (4, 'PART_TIME', 16,  9.00, '2025-01-01', '2025-05-31'),
+                                                                                                       (4, 'PART_TIME', 20,  9.50, '2025-06-01', NULL),
+                                                                                                       (5, 'FULL_TIME', 40, 10.00, '2025-01-01', NULL),
+                                                                                                       (6, 'PART_TIME', 16,  8.50, '2025-09-01', NULL);
 
--- Disponibilita' dei part-time (Giulia e Sara); Paolo resta volutamente
--- senza disponibilita' inserite, per provare quel caso.
-INSERT INTO disponibilita (dipendente_id, giorno_settimana, servizio) VALUES
-    (2, 5, 'CENA'), (2, 6, 'CENA'), (2, 7, 'PRANZO'),
-    (4, 5, 'CENA'), (4, 6, 'PRANZO'), (4, 6, 'CENA');
+-- Disponibilita' dei part-time Giulia (id 2) e Sara (id 4), con giorno 1 = lunedi
+-- ... 7 = domenica. Sara il sabato sera e' libera fino alle 2 (finestra oltre la
+-- mezzanotte). Paolo (id 6) resta volutamente senza disponibilita' inserite,
+-- per provare quel caso.
+INSERT INTO disponibilita (dipendente_id, giorno_settimana, ora_inizio, ora_fine) VALUES
+                                                                                      (2, 5, '18:00:00', '23:00:00'),
+                                                                                      (2, 6, '18:00:00', '23:00:00'),
+                                                                                      (2, 7, '12:00:00', '15:00:00'),
+                                                                                      (4, 5, '18:00:00', '23:00:00'),
+                                                                                      (4, 6, '12:00:00', '15:00:00'),
+                                                                                      (4, 6, '18:00:00', '02:00:00');
 
-INSERT INTO fabbisogno (ruolo_id, tipo_giorno, servizio, numero_persone) VALUES
-    (1, 'WEEKEND', 'CENA', 2),
-    (2, 'WEEKEND', 'CENA', 1),
-    (3, 'WEEKEND', 'CENA', 5),
-    (4, 'WEEKEND', 'CENA', 2);
+INSERT INTO fabbisogno (ruolo, tipo_giorno, servizio, numero_minimo_dipendenti) VALUES
+                                                                                    ('CUOCO',       'WEEKEND', 'CENA', 2),
+                                                                                    ('AIUTO_CUOCO', 'WEEKEND', 'CENA', 1),
+                                                                                    ('CAMERIERE',   'WEEKEND', 'CENA', 5),
+                                                                                    ('LAVAPIATTI',  'WEEKEND', 'CENA', 2);
