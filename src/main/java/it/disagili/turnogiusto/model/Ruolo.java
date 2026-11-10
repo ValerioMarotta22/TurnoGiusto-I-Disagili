@@ -1,10 +1,14 @@
 package it.disagili.turnogiusto.model;
 
+/**
+ * Ruoli operativi dei dipendenti. Il caposala NON e' un ruolo: e' un incarico
+ * che il titolare assegna, turno per turno, a un cameriere full-time
+ * (vedi {@link Dipendente#puoEssereCaposala()}).
+ */
 public enum Ruolo {
     CUOCO("Cuoco"),
     AIUTO_CUOCO("Aiuto cuoco"),
     CAMERIERE("Cameriere"),
-    CAPOSALA("Caposala"),
     LAVAPIATTI("Lavapiatti");
 
     private final String etichetta;

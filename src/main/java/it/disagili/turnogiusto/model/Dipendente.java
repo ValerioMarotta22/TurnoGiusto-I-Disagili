@@ -37,6 +37,18 @@ public class Dipendente {
     }
 
     /**
+     * Il caposala non e' un ruolo ma un incarico assegnato per un singolo turno.
+     * Puo' ricoprirlo solo un cameriere con contratto full-time (non un part-time).
+     * Che sia davvero in servizio in quel turno e libero da ferie o malattia lo
+     * controlla la pianificazione dei turni, non questa classe.
+     */
+    public boolean puoEssereCaposala() {
+        return ruolo == Ruolo.CAMERIERE
+                && contratto != null
+                && contratto.getTipoContratto() == TipoContratto.FULL_TIME;
+    }
+
+    /**
      * Controlla i dati del dipendente e del suo contratto (US-01).
      *
      * @return l'elenco dei problemi trovati, vuoto se i dati sono validi

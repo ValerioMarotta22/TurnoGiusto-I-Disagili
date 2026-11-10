@@ -16,14 +16,16 @@ SET NAMES utf8mb4;
 -- ---------------------------------------------------------------------
 -- DIPENDENTE (US-01). Il ruolo e' una colonna ENUM, come l'enum Ruolo.
 -- La tabella "ruolo" non serve piu'.
--- Da decidere con il Product Owner: il CAPOSALA lavora a turni (e allora
--- serve anche il suo fabbisogno) o e' solo un attore del sistema?
+-- Il CAPOSALA non e' un ruolo: e' un incarico che il titolare assegna, turno
+-- per turno, a un cameriere full-time (Dipendente.puoEssereCaposala()).
+-- Per questo qui non compare: vivra' nella tabella dei turni assegnati
+-- (Sprint 2, US-06A / US-22), non in "dipendente".
 -- ---------------------------------------------------------------------
 CREATE TABLE dipendente (
                             id      INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
                             nome    VARCHAR(50) NOT NULL,
                             cognome VARCHAR(50) NOT NULL,
-                            ruolo   ENUM('CUOCO', 'AIUTO_CUOCO', 'CAMERIERE', 'CAPOSALA', 'LAVAPIATTI') NOT NULL
+                            ruolo   ENUM('CUOCO', 'AIUTO_CUOCO', 'CAMERIERE', 'LAVAPIATTI') NOT NULL
 ) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------------------
@@ -82,10 +84,12 @@ CREATE TABLE disponibilita (
 -- FABBISOGNO (US-05): quante persone servono per ruolo, tipo di giorno
 -- e servizio. Una sola riga per combinazione.
 -- Come si definisce un giorno festivo e' una domanda per il Product Owner.
+-- Il caposala di turno e' uno dei camerieri e conta nel loro numero (non
+-- ha una riga a parte): ipotesi da confermare con il Product Owner.
 -- ---------------------------------------------------------------------
 CREATE TABLE fabbisogno (
                             id                       INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-                            ruolo                    ENUM('CUOCO', 'AIUTO_CUOCO', 'CAMERIERE', 'CAPOSALA', 'LAVAPIATTI') NOT NULL,
+                            ruolo                    ENUM('CUOCO', 'AIUTO_CUOCO', 'CAMERIERE', 'LAVAPIATTI') NOT NULL,
                             tipo_giorno              ENUM('FERIALE', 'FESTIVO', 'WEEKEND') NOT NULL,
                             servizio                 ENUM('PRANZO', 'CENA') NOT NULL,
                             numero_minimo_dipendenti TINYINT UNSIGNED NOT NULL,
