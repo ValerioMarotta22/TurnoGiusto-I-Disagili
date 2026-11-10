@@ -62,6 +62,24 @@ class DipendenteTest {
     }
 
     @Test
+    void soloUnCameriereFullTimePuoEssereCaposala() {
+        Contratto partTime = new Contratto(0, TipoContratto.PART_TIME, 20,
+                new BigDecimal("9.00"), LocalDate.of(2026, 1, 1));
+
+        assertTrue(new Dipendente("Anna", "Gialli", Ruolo.CAMERIERE, contrattoValido()).puoEssereCaposala());
+        assertFalse(new Dipendente("Sara", "Neri", Ruolo.CAMERIERE, partTime).puoEssereCaposala());
+        assertFalse(new Dipendente("Mario", "Rossi", Ruolo.CUOCO, contrattoValido()).puoEssereCaposala());
+        assertFalse(new Dipendente("Anna", "Gialli", Ruolo.CAMERIERE, null).puoEssereCaposala());
+    }
+
+    @Test
+    void ilCaposalaNonEUnRuolo() {
+        for (Ruolo r : Ruolo.values()) {
+            assertFalse(r.name().contains("CAPOSALA"), "Il caposala è un incarico di turno, non un ruolo");
+        }
+    }
+
+    @Test
     void dueDipendentiSalvatiConLoStessoIdSonoUguali() {
         Dipendente a = new Dipendente(7, "Mario", "Rossi", Ruolo.CUOCO, null);
         Dipendente b = new Dipendente(7, "Mario", "Rossi", Ruolo.CUOCO, null);
