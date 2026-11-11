@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<!-- FXMLLoader crea il controller indicato e collega gli fx:id ai suoi campi @FXML. -->
+<VBox xmlns:fx="http://javafx.com/fxml"
+      fx:controller="it.disagili.turnogiusto.ui.DipendenteFormController"
+      spacing="16.0" prefWidth="560.0">
+
+    <padding>
+        <Insets top="24.0" right="24.0"
+                bottom="24.0" left="24.0"/>
+    </padding>
+
+    <Label text="Nuovo dipendente"
+           style="-fx-font-size: 24px; -fx-font-weight: bold;"/>
+
+    <!-- Due colonne: etichette a sinistra, controlli a destra; gli indici partono da 0. -->
+    <GridPane hgap="16.0" vgap="12.0">
+        <columnConstraints>
+            <ColumnConstraints prefWidth="160.0"/>
+            <ColumnConstraints hgrow="ALWAYS"/>
+        </columnConstraints>
+
+        <!-- Sezione Anagrafica -->
+        <Label text="Anagrafica"
+               style="-fx-font-weight: bold;"
+               GridPane.rowIndex="0" GridPane.columnSpan="2"/>
+
+        <Label text="Nome"
+               GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+        <TextField fx:id="nomeField"
+                   GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+        <Label text="Cognome"
+               GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+        <TextField fx:id="cognomeField"
+                   GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+        <Label text="Ruolo"
+               GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+        <ComboBox fx:id="ruoloCombo" maxWidth="Infinity"
+                  GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+
+        <!-- Sezione Contratto -->
+        <Label text="Contratto"
+               style="-fx-font-weight: bold;"
+               GridPane.rowIndex="4" GridPane.columnSpan="2"/>
+
+        <Label text="Tipo di contratto"
+               GridPane.rowIndex="5" GridPane.columnIndex="0"/>
+        <ComboBox fx:id="tipoContrattoCombo" maxWidth="Infinity"
+                  GridPane.rowIndex="5" GridPane.columnIndex="1"/>
+
+        <Label text="Ore settimanali"
+               GridPane.rowIndex="6" GridPane.columnIndex="0"/>
+        <TextField fx:id="oreSettimanaliField" promptText="Es. 20"
+                   GridPane.rowIndex="6" GridPane.columnIndex="1"/>
+
+        <Label text="Costo orario (€)"
+               GridPane.rowIndex="7" GridPane.columnIndex="0"/>
+        <TextField fx:id="costoOrarioField" promptText="Es. 12,50"
+                   GridPane.rowIndex="7" GridPane.columnIndex="1"/>
+
+        <Label text="Data di inizio"
+               GridPane.rowIndex="8" GridPane.columnIndex="0"/>
+        <DatePicker fx:id="dataInizioPicker" maxWidth="Infinity"
+                    GridPane.rowIndex="8" GridPane.columnIndex="1"/>
+
+        <Label text="Data di fine (facoltativa)"
+               wrapText="true"
+               GridPane.rowIndex="9" GridPane.columnIndex="0"/>
+        <DatePicker fx:id="dataFinePicker" maxWidth="Infinity"
+                    GridPane.rowIndex="9" GridPane.columnIndex="1"/>
+    </GridPane>
+
+    <!-- Spazio destinato ai messaggi di errore o conferma -->
+    <Label fx:id="messaggioLabel" wrapText="true"
+           visible="false" managed="false"/>
+
+    <!-- onAction richiama il metodo del controller indicato dopo #.
+         Annulla esegue l'azione di uscita fornita dalla schermata chiamante. -->
+    <HBox spacing="12.0" alignment="CENTER_RIGHT">
+        <Button fx:id="annullaButton"
+                text="Annulla"
+                onAction="#onAnnulla"/>
+        <Button fx:id="salvaButton" text="Salva" onAction="#onSalva"/>
+    </HBox>
+</VBox>
