@@ -1,9 +1,11 @@
 package it.disagili.turnogiusto.repository;
 
+import it.disagili.turnogiusto.support.MySqlDisponibilitaExtension;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import it.disagili.turnogiusto.model.Ruolo;
 
@@ -19,21 +21,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Prova di collegamento al database. Se il database non e' acceso
- * (docker compose up -d) il test viene SALTATO, non fallisce: cosi'
- * "mvnw test" funziona anche su un PC senza Docker.
+ * Controlla lo schema condiviso su un database di test isolato.
+ * Funziona con Maven e con il runner JUnit di IntelliJ, senza opzioni obbligatorie.
  */
+@ExtendWith(MySqlDisponibilitaExtension.class)
+@Tag("database")
 class DatabaseTest {
 
     private static Connection connection;
 
     @BeforeAll
-    static void connect() {
-        try {
-            connection = Database.getConnection();
-        } catch (SQLException e) {
-            connection = null;
-        }
+    static void connect() throws SQLException {
+        connection = MySqlDisponibilitaExtension.apriConnessione();
     }
 
     @AfterAll
@@ -45,9 +44,6 @@ class DatabaseTest {
 
     @Test
     void leQuattroTabelleDelloSchemaSonoPresenti() throws SQLException {
-        Assumptions.assumeTrue(connection != null,
-                "Database non raggiungibile: avvia 'docker compose up -d' per eseguire questo test");
-
         Set<String> tabelle = new TreeSet<>();
         try (Statement st = connection.createStatement();
              ResultSet rs = st.executeQuery("SHOW TABLES")) {
@@ -56,15 +52,12 @@ class DatabaseTest {
             }
         }
         assertEquals(Set.of("contratto", "dipendente", "disponibilita", "fabbisogno"), tabelle,
-                "Schema vecchio? Ricrea il database: docker compose down -v, poi docker compose up -d --wait");
+                "Lo schema del database di test deve corrispondere a db/init/01_schema.sql");
     }
 
     /** Le colonne ENUM del database devono avere gli stessi valori dell'enum Java Ruolo. */
     @Test
     void iRuoliDelDatabaseCoincidonoConLEnumRuolo() throws SQLException {
-        Assumptions.assumeTrue(connection != null,
-                "Database non raggiungibile: avvia 'docker compose up -d' per eseguire questo test");
-
         Set<String> attesi = new TreeSet<>();
         for (Ruolo r : Ruolo.values()) {
             attesi.add(r.name());

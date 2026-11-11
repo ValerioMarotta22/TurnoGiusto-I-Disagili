@@ -1,0 +1,24 @@
+# Istanza separata, senza volume persistente: non usa il database del gruppo.
+# docker compose -p turnogiusto-disponibilita-test -f docker-compose.disponibilita-test.yml up -d --wait
+services:
+  db-test:
+    image: mysql:8.4
+    # Il test di rollback crea un trigger con l'utente dello schema di prova.
+    # Su questa istanza usa-e-getta non serve il binary log (né il privilegio SUPER).
+    command: ["--skip-log-bin"]
+    environment:
+      MYSQL_ROOT_PASSWORD: root_solo_test
+      MYSQL_DATABASE: turnogiusto_us03_test
+      MYSQL_USER: turnogiusto_test
+      MYSQL_PASSWORD: turnogiusto_test
+      TZ: Europe/Rome
+    ports:
+      - "127.0.0.1:${DISPONIBILITA_TEST_PORT:-33317}:3306"
+    volumes:
+      - ./db/init/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+      start_period: 20s

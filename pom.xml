@@ -48,6 +48,27 @@
     </dependencies>
 
     <build>
+        <!-- Le viste e il CSS originali restano commentati nei sorgenti, fuori dal JAR. -->
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <excludes>
+                    <exclude>it/disagili/turnogiusto/hello-view.fxml</exclude>
+                </excludes>
+            </resource>
+        </resources>
+        <testResources>
+            <testResource>
+                <directory>src/test/resources</directory>
+            </testResource>
+            <testResource>
+                <directory>db/init</directory>
+                <targetPath>db</targetPath>
+                <includes>
+                    <include>01_schema.sql</include>
+                </includes>
+            </testResource>
+        </testResources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -62,6 +83,9 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.5.2</version>
+                <configuration>
+                    <failIfNoTests>true</failIfNoTests>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.openjfx</groupId>
@@ -85,4 +109,10 @@
             </plugin>
         </plugins>
     </build>
+    <!-- Il vecchio profilo resta accettato: ora i test JDBC partono anche senza profilo. -->
+    <profiles>
+        <profile>
+            <id>verifica-disponibilita</id>
+        </profile>
+    </profiles>
 </project>

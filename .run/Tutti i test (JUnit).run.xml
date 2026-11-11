@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Tutti i test (JUnit)" type="JUnit" factoryName="JUnit">
+    <module name="turnogiusto" />
+    <option name="PACKAGE_NAME" value="it.disagili.turnogiusto" />
+    <option name="TEST_OBJECT" value="package" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
