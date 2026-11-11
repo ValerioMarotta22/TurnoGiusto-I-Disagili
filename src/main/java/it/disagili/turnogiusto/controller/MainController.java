@@ -44,7 +44,7 @@ public class MainController {
     //     caricaSchermata("dipendenti-view.fxml");
     @FXML
     private void apriDipendenti() {
-        mostraNonDisponibile("Registrazione dipendenti e contratti (US-01, US-02)");
+        caricaSchermata("ui/elenco-dipendenti.fxml");
     }
 
     @FXML
