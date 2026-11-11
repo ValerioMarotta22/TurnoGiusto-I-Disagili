@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.layout.Pane?>
+<!-- Radice vuota: la schermata originale e sospesa e conservata qui sotto. -->
+<Pane xmlns:fx="http://javafx.com/fxml/1"/>
+<!--
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox fx:id="contenuto" spacing="14" prefWidth="1000" prefHeight="660"
+      stylesheets="@disponibilita.css" styleClass="pagina" xmlns="http://javafx.com/javafx/21"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="it.disagili.turnogiusto.ui.GestioneDisponibilitaController">
+    <padding>
+        <Insets top="24" right="24" bottom="24" left="24"/>
+    </padding>
+
+    <Label text="Le disponibilità settimanali" styleClass="titolo"/>
+    <Label text="Inserisci le fasce che si ripetono ogni settimana. Salva per comunicarle al titolare." wrapText="true"/>
+    <HBox spacing="12" alignment="CENTER_LEFT">
+        <Label text="Dipendente part-time"/>
+        <ComboBox fx:id="dipendenteCombo" promptText="Seleziona un dipendente" prefWidth="330"/>
+        <Button fx:id="aggiornaDipendentiButton" text="Aggiorna dipendenti" onAction="#caricaDipendenti"/>
+    </HBox>
+    <VBox fx:id="editor" spacing="12" VBox.vgrow="ALWAYS">
+        <Separator/>
+        <HBox spacing="16" alignment="BOTTOM_LEFT">
+            <VBox spacing="6"><Label text="Giorno"/><ComboBox fx:id="giornoCombo" prefWidth="170"/></VBox>
+            <VBox spacing="6"><Label text="Dalle"/><TextField fx:id="oraInizioField" promptText="18:00" prefWidth="110" maxWidth="130"/></VBox>
+            <VBox spacing="6"><Label text="Alle"/><TextField fx:id="oraFineField" promptText="23:00" prefWidth="110" maxWidth="130"/></VBox>
+        </HBox>
+        <Label text="Formato orario: HH:mm. Una fine precedente all'inizio indica il giorno successivo (es. 18:00–02:00)." wrapText="true" styleClass="nota"/>
+        <HBox spacing="10">
+            <Button fx:id="aggiungiButton" text="Aggiungi" onAction="#onAggiungi"/>
+            <Button fx:id="modificaButton" text="Aggiorna fascia selezionata" onAction="#onModifica"/>
+            <Button fx:id="nuovaButton" text="Pulisci campi" onAction="#onNuova"/>
+        </HBox>
+        <Label text="Fasce del dipendente — seleziona una riga per modificarla" styleClass="sottotitolo"/>
+        <ListView fx:id="elencoFinestre" VBox.vgrow="ALWAYS" prefHeight="220"/>
+        <HBox spacing="10">
+            <Button fx:id="rimuoviButton" text="Rimuovi fascia selezionata" onAction="#onRimuovi"/>
+            <Pane HBox.hgrow="ALWAYS"/>
+            <Button fx:id="ricaricaButton" text="Ricarica / annulla modifiche" onAction="#onRicarica"/>
+            <Button fx:id="salvaButton" text="Salva disponibilità" onAction="#onSalva" styleClass="principale"/>
+        </HBox>
+    </VBox>
+    <Label fx:id="messaggio" text="Seleziona un dipendente per iniziare." wrapText="true" minHeight="42" styleClass="stato"/>
+</VBox>
+
+-->

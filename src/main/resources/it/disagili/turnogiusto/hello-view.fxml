@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.layout.Pane?>
+<!-- Radice vuota: la schermata originale e sospesa e conservata qui sotto. -->
+<Pane xmlns:fx="http://javafx.com/fxml/1"/>
+<!--
+<?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Label?>
@@ -14,3 +19,5 @@
     <Label fx:id="welcomeText"/>
     <Button text="Hello!" onAction="#onHelloButtonClick"/>
 </VBox>
+
+-->

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.layout.Pane?>
+<!-- Radice vuota: la schermata originale e sospesa e conservata qui sotto. -->
+<Pane xmlns:fx="http://javafx.com/fxml/1"/>
+<!--
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox fx:id="contenuto" spacing="16" prefWidth="1000" prefHeight="660"
+      stylesheets="@disponibilita.css" styleClass="pagina" xmlns="http://javafx.com/javafx/21"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="it.disagili.turnogiusto.ui.ConsultazioneDisponibilitaController">
+    <padding>
+        <Insets top="24" right="24" bottom="24" left="24"/>
+    </padding>
+
+    <HBox alignment="CENTER_LEFT" spacing="16">
+        <Label text="Disponibilità dei part-time" styleClass="titolo"/>
+        <Pane HBox.hgrow="ALWAYS"/>
+        <Button fx:id="aggiornaButton" text="Aggiorna" onAction="#aggiorna" styleClass="principale"/>
+    </HBox>
+    <Label text="Finestre ricorrenti ogni settimana dei dipendenti con contratto part-time valido oggi." wrapText="true"/>
+    <TableView fx:id="tabella" VBox.vgrow="ALWAYS">
+        <columns>
+            <TableColumn fx:id="dipendenteColonna" text="Dipendente" prefWidth="220"/>
+            <TableColumn fx:id="ruoloColonna" text="Ruolo" prefWidth="150"/>
+            <TableColumn fx:id="disponibilitaColonna" text="Giorni e fasce orarie" prefWidth="560"/>
+        </columns>
+    </TableView>
+    <Label text="“Senza disponibilità inserite” indica l'assenza di fasce comunicate, non una disponibilità illimitata." wrapText="true" styleClass="nota"/>
+    <Label fx:id="messaggio" text="Premi Aggiorna per consultare le disponibilità." wrapText="true" minHeight="42" styleClass="stato"/>
+</VBox>
+
+-->
