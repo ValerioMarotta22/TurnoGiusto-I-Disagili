@@ -62,17 +62,42 @@ Il test di collegamento al database viene **saltato** (non fallisce) se il datab
 ```
 docker-compose.yml          database MySQL per lo sviluppo
 .env.example                modello delle impostazioni personali (vedi sezione Database)
-db/init/01_schema.sql       tabelle (bozza da rivedere insieme)
+db/init/01_schema.sql       tabelle del database
 db/init/02_seed.sql         dati di prova
 pom.xml                     dipendenze e build (Maven)
 src/main/java/it/disagili/turnogiusto/
     Launcher.java, HelloApplication.java    avvio dell'applicazione
     HelloController.java                    schermata di prova (da sostituire)
-    repository/Database.java                connessione al database
+    model/                                  classi del dominio (già presenti)
+    repository/                             accesso al database (per ora solo Database.java)
+    service/                                operazioni che mettono insieme più cose (da creare quando servono)
+    controller/                             controller JavaFX delle schermate (da creare)
 src/main/resources/...                      file FXML delle schermate
 src/test/java/...                           test JUnit 5
 ```
-Struttura prevista per il codice nuovo: `domain` (regole e modello: dipendenti, contratti, vincoli), `repository` (accesso al database) e `ui` (schermate), con la logica nel `domain` e il meno possibile nelle schermate.
+
+### Architettura del codice
+Il codice è diviso in quattro livelli. Ognuno parla solo con quello sotto di sé:
+
+```
+controller  ->  service  ->  repository  ->  database
+                  (tutti usano le classi di model)
+```
+
+| Livello | Cosa contiene | Cosa NON deve contenere |
+|---|---|---|
+| `model` | Le classi del dominio (`Dipendente`, `Contratto`, `Disponibilita`, `Fabbisogno`, le enum) con le loro regole di validazione (`valida()`). | SQL, JavaFX. |
+| `repository` | Solo l'accesso al database (JDBC): una classe per tabella o gruppo di tabelle, ad esempio `DipendenteRepository` con `trovaTutti()`, `salva()`, `trovaPerId()`. | Regole di business, JavaFX. |
+| `service` | Le operazioni che coinvolgono più repository o più regole: ad esempio cambiare un contratto (US-02) significa chiudere il vecchio e inserire il nuovo **in una sola transazione**. | SQL scritto a mano, JavaFX. |
+| `controller` | I controller JavaFX: leggono i campi della schermata, chiamano il service (o il repository), mostrano i risultati e gli errori. | SQL, regole di business. |
+
+Regole pratiche:
+- **Il service si crea solo se serve.** Se una schermata deve solo leggere o salvare un dato semplice, il controller può chiamare direttamente il repository. Non si scrivono service vuoti "per ordine".
+- **Ogni storia è una fetta completa**: chi prende una storia scrive repository, eventuale service, controller, FXML e test per quella storia.
+- **Gli errori di validazione** arrivano dal `valida()` del model come elenco di messaggi: la schermata li mostra, non li riscrive.
+- **Enum e database**: nel database si salva `name()` (ad esempio `AIUTO_CUOCO`), nella schermata si mostra `toString()` (ad esempio "Aiuto cuoco").
+- **Il caposala non è un ruolo** ma un incarico assegnato a un cameriere full-time per un singolo turno (`Dipendente.puoEssereCaposala()`, storia US-22). Per questo non compare nell'enum `Ruolo` né nel database dei dipendenti.
+- **Test**: `model` e `service` con test unitari che non hanno bisogno del database; `repository` con test che usano il database acceso (vengono saltati se è spento).
 
 ## 4. Database
 - MySQL 8.4 in Docker. Database `turnogiusto`, utente `turnogiusto`, password `turnogiusto`: sono credenziali **solo di sviluppo**, valide soltanto sul proprio PC.
@@ -112,7 +137,7 @@ docker compose exec db mysql -uturnogiusto -pturnogiusto turnogiusto
 - Gli script partono **solo alla prima creazione** del database: dopo aver cambiato un file bisogna ricrearlo con `docker compose down -v` e `docker compose up -d --wait` (i dati inseriti a mano vanno persi).
 - Le modifiche fatte da un programma esterno (DBeaver, Workbench...) **non sono condivise** con gli altri e spariscono al primo reset: la struttura va sempre scritta nei file `.sql`.
 - Nel file dei dati gli ID sono scritti a mano: per aggiungere righe usare numeri nuovi e usare gli stessi numeri nelle tabelle collegate (`contratto`, `disponibilita`), altrimenti MySQL dà un errore di chiave esterna.
-- `01_schema.sql` contiene le scelte ancora da decidere insieme, segnate con `DA DECIDERE`.
+- Lo schema è allineato alle classi del pacchetto `model`: i valori degli ENUM del database sono i nomi delle enum Java (il test `DatabaseTest` controlla che coincidano). Se si aggiunge un valore a un'enum, va aggiunto anche allo schema, e viceversa.
 
 ## 5. Come lavoriamo
 - Prima di iniziare: `Git > Pull`.
@@ -128,7 +153,8 @@ docker compose exec db mysql -uturnogiusto -pturnogiusto turnogiusto
 | `docker compose up` dice "failed to connect to the docker API" o "daemon is not running" | Avviare Docker Desktop e aspettare che sia pronto. |
 | Errore "ports are not available" sulla 3306 | Un altro MySQL usa la porta: creare `.env` con `MYSQL_PORT=3307` (vedi sezione Database). |
 | L'app scrive "Database non raggiungibile" | Il database è spento (`docker compose up -d --wait`) oppure la porta in `.env` non coincide con quella di Docker. |
-| `mvnw test` mostra `Skipped: 1` | Il test non ha trovato il database: controllare che sia acceso. |
+| `mvnw test` mostra `Skipped: 2` | I test del database non l'hanno trovato: controllare che sia acceso. |
+| `DatabaseTest` fallisce con "Schema vecchio" o "non coincide con l'enum Ruolo" | Il database locale è di una versione precedente: `docker compose down -v` e poi `docker compose up -d --wait`. |
 | "JavaFX runtime components are missing" | Si è avviato con il Play standard: usare `javafx:run` dal pannello Maven. |
 | `mvnw` dice che non trova `JAVA_HOME` | Impostare la variabile d'ambiente `JAVA_HOME` sulla cartella della JDK 21 e riavviare IntelliJ. |
 | Dopo un `pull` mancano classi o dipendenze | Pannello Maven, *Reload All Maven Projects*. |
