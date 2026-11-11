@@ -57,6 +57,7 @@ Premendo il bottone **Hello!** deve comparire "Database collegato: 6 dipendenti"
 ```
 
 Il test di collegamento al database viene **saltato** (non fallisce) se il database non è acceso.
+Attenzione: `DatabaseTest` e i test di US-03/04 non usano il database di Docker, ma avviano un MySQL temporaneo e richiedono un MySQL Server installato sul PC (`mysqld`). Se non c'è, lanciare i test con `.\mvnw test -DexcludedGroups=database`.
 
 ## 3. Struttura del progetto
 ```
@@ -153,13 +154,13 @@ docker compose exec db mysql -uturnogiusto -pturnogiusto turnogiusto
 | `docker compose up` dice "failed to connect to the docker API" o "daemon is not running" | Avviare Docker Desktop e aspettare che sia pronto. |
 | Errore "ports are not available" sulla 3306 | Un altro MySQL usa la porta: creare `.env` con `MYSQL_PORT=3307` (vedi sezione Database). |
 | L'app scrive "Database non raggiungibile" | Il database è spento (`docker compose up -d --wait`) oppure la porta in `.env` non coincide con quella di Docker. |
-| `mvnw test` mostra `Skipped: 2` | I test del database non l'hanno trovato: controllare che sia acceso. |
+| `mvnw test` mostra `Skipped: 30` | I test del database non l'hanno trovato: controllare che sia acceso. |
 | `DatabaseTest` fallisce con "Schema vecchio" o "non coincide con l'enum Ruolo" | Il database locale è di una versione precedente: `docker compose down -v` e poi `docker compose up -d --wait`. |
 | "JavaFX runtime components are missing" | Si è avviato con il Play standard: usare `javafx:run` dal pannello Maven. |
 | `mvnw` dice che non trova `JAVA_HOME` | Impostare la variabile d'ambiente `JAVA_HOME` sulla cartella della JDK 21 e riavviare IntelliJ. |
 | Dopo un `pull` mancano classi o dipendenze | Pannello Maven, *Reload All Maven Projects*. |
 | Ho cambiato lo schema ma il database non cambia | Gli script partono solo alla creazione: `docker compose down -v` e poi `docker compose up -d --wait`. |
-
+| `mvnw test` fallisce con "MySQL Server locale non trovato" | I test del database cercano un MySQL Server installato sul PC. Se non c'è, escluderli con `.\mvnw test -DexcludedGroups=database`. |
 ---
 
 By IDisagili.
