@@ -18,9 +18,7 @@ dei turni lavorativi nella ristorazione.
 Il progetto segue il framework Scrum.
 
 ## Stato del progetto
-Sprint 1 in corso (consegna il 12 novembre). La logica di US-03/US-04 è disponibile;
-l'interfaccia JavaFX è temporaneamente conservata nei commenti in attesa del CSS
-condiviso del team. Vedi [guida US-03/US-04](docs/US03-US04.md) per test e ripristino.
+Sprint 1 in corso (consegna il 12 novembre): ambiente di sviluppo pronto, schermate e storie da sviluppare.
 
 ---
 
@@ -44,15 +42,13 @@ docker compose up -d --wait
 
 La prima volta scarica l'immagine di MySQL (qualche minuto).
 
-5. L'avvio JavaFX è temporaneamente sospeso. Il comando resta disponibile, ma
-   stampa un messaggio e termina senza aprire finestre:
+5. Avviare l'applicazione: pannello Maven, `Plugins > javafx > javafx:run` (oppure da terminale PowerShell):
 
 ```bash
 .\mvnw javafx:run
 ```
 
-Anche la schermata Hello è conservata nei commenti. Il collegamento al database
-si verifica con i test.
+Si apre la finestra di TurnoGiusto con il menu in alto. Da **Fabbisogno > Fabbisogno di personale** si apre la schermata del fabbisogno: nella tabella devono comparire le righe di prova. Non avviare la classe con il pulsante Play standard di IntelliJ: JavaFX da solo non parte, usare sempre `javafx:run`.
 
 6. Eseguire i test:
 
@@ -60,21 +56,7 @@ si verifica con i test.
 .\mvnw test
 ```
 
-Tutti i test, inclusi quelli JDBC, partono anche dal triangolo verde di IntelliJ.
-Usano soltanto il database dedicato `turnogiusto_us03_test`, sulla porta `33317`.
-Se MySQL Server locale è installato, i test avviano e spengono un'istanza temporanea;
-in alternativa avviare il Compose di test indicato nella [guida](docs/US03-US04.md).
-
-Per la verifica completa prima della pull request:
-
-```powershell
-.\mvnw.cmd clean verify
-```
-
-Per lavorare senza MySQL usare `.\mvnw.cmd -DexcludedGroups=database test`.
-Non occorrono profili o variabili d'ambiente per l'avvio ordinario dei test.
-Configurazioni IntelliJ, comandi Docker e dettagli sono nella
-[guida US-03/US-04](docs/US03-US04.md).
+I test che usano il database vengono **saltati** (non falliscono) se il database non è acceso.
 
 ## 3. Struttura del progetto
 ```
@@ -84,10 +66,10 @@ db/init/01_schema.sql       tabelle (bozza da rivedere insieme)
 db/init/02_seed.sql         dati di prova
 pom.xml                     dipendenze e build (Maven)
 src/main/java/it/disagili/turnogiusto/
-    Launcher.java                           avvio temporaneo senza finestra
-    HelloApplication.java, HelloController.java  interfaccia di prova commentata
+    Launcher.java, HelloApplication.java    avvio dell'applicazione
+    HelloController.java                    schermata di prova (da sostituire)
     repository/Database.java                connessione al database
-src/main/resources/...                      FXML e CSS conservati nei commenti
+src/main/resources/...                      file FXML delle schermate
 src/test/java/...                           test JUnit 5
 ```
 Struttura prevista per il codice nuovo: `domain` (regole e modello: dipendenti, contratti, vincoli), `repository` (accesso al database) e `ui` (schermate), con la logica nel `domain` e il meno possibile nelle schermate.
@@ -146,8 +128,7 @@ docker compose exec db mysql -uturnogiusto -pturnogiusto turnogiusto
 | `docker compose up` dice "failed to connect to the docker API" o "daemon is not running" | Avviare Docker Desktop e aspettare che sia pronto. |
 | Errore "ports are not available" sulla 3306 | Un altro MySQL usa la porta: creare `.env` con `MYSQL_PORT=3307` (vedi sezione Database). |
 | L'app scrive "Database non raggiungibile" | Il database è spento (`docker compose up -d --wait`) oppure la porta in `.env` non coincide con quella di Docker. |
-| JUnit termina con `-1` prima di eseguire US03 | Ricaricare Maven e usare le classi aggiornate: i test ora preparano autonomamente il database dedicato. |
-| I test non trovano `mysqld` | Installare MySQL Server oppure avviare il Compose di test, come descritto nella guida US-03/US-04. |
+| `mvnw test` mostra `Skipped: 1` | Il test non ha trovato il database: controllare che sia acceso. |
 | "JavaFX runtime components are missing" | Si è avviato con il Play standard: usare `javafx:run` dal pannello Maven. |
 | `mvnw` dice che non trova `JAVA_HOME` | Impostare la variabile d'ambiente `JAVA_HOME` sulla cartella della JDK 21 e riavviare IntelliJ. |
 | Dopo un `pull` mancano classi o dipendenze | Pannello Maven, *Reload All Maven Projects*. |
