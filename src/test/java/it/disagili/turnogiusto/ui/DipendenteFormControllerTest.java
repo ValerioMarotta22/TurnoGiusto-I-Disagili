@@ -21,7 +21,6 @@ import javafx.stage.WindowEvent;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
 
 import java.math.BigDecimal;
@@ -40,12 +39,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Test grafici conservati per un eventuale ripristino delle schermate.
- * Il team ha sospeso le interfacce di US01/US02: i FXML sono ora file .fxml.commentato.
- * Questa sospensione riguarda solo la UI, non i test di model, repository e service.
- * Per il ripristino completo seguire docs/interfacce-sospese.md.
+ * Test JavaFX attivi del modulo di registrazione e dell'elenco dipendenti.
+ * Caricano i FXML ripristinati e controllano i controller con repository e service
+ * sostituiti nei test: le operazioni grafiche non scrivono sul database reale.
+ * I test separati di repository e service verificano la persistenza e le transazioni.
  */
-@Disabled("Interfacce US01/US02 sospese dal team; ripristino in docs/interfacce-sospese.md")
 class DipendenteFormControllerTest {
 
     /** Condivide lo stesso toolkit JavaFX dei test del modulo, senza riavviarlo. */
