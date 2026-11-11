@@ -18,10 +18,9 @@ import javafx.scene.control.TableColumn;
 import javafx.stage.Stage;
 import javafx.stage.Window;
 import javafx.stage.WindowEvent;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.math.BigDecimal;
 import java.sql.SQLException;
@@ -43,7 +42,10 @@ import static org.junit.jupiter.api.Assertions.*;
  * Caricano i FXML ripristinati e controllano i controller con repository e service
  * sostituiti nei test: le operazioni grafiche non scrivono sul database reale.
  * I test separati di repository e service verificano la persistenza e le transazioni.
+ * JavaFX è gestito insieme ai test US02: non avviarlo o spegnerlo in questa classe,
+ * perché dopo Platform.exit() non può essere riavviato nello stesso processo.
  */
+@ExtendWith(JavaFxTestSupport.class)
 class DipendenteFormControllerTest {
 
     /** Condivide lo stesso toolkit JavaFX dei test del modulo, senza riavviarlo. */
@@ -312,27 +314,6 @@ class DipendenteFormControllerTest {
                 return null;
             });
         }
-    }
-
-    @BeforeAll
-    static void avviaJavaFx() throws Exception {
-        // Il toolkit JavaFX si inizializza una volta per questa classe di test.
-        // Un latch è un segnale: countDown lo libera, await aspetta che sia pronto.
-        // Il limite di 10 secondi evita attese indefinite in caso di problemi.
-        CountDownLatch pronto = new CountDownLatch(1);
-        Platform.startup(() -> {
-            // Alcune prove aprono e chiudono il modulo: la chiusura dell'ultima
-            // finestra non deve fermare JavaFX prima delle prove successive.
-            Platform.setImplicitExit(false);
-            pronto.countDown();
-        });
-        assertTrue(pronto.await(10, TimeUnit.SECONDS));
-    }
-
-    @AfterAll
-    static void terminaJavaFx() {
-        // Rilasciamo il toolkit dopo l'ultima prova di questa classe.
-        Platform.exit();
     }
 
     // Qualunque accesso ai controlli avviene sul thread grafico, come nell'applicazione.

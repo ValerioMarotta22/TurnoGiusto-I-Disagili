@@ -24,6 +24,7 @@
                 text="Nuovo dipendente" onAction="#onNuovoDipendente"/>
         <Button fx:id="modificaContrattoButton"
                 text="Modifica Contratto"
+                onAction="#onModificaContratto"
                 disable="true"/>
 
 

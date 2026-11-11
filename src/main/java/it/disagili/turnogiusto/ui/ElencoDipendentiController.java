@@ -3,6 +3,7 @@ package it.disagili.turnogiusto.ui;
 import it.disagili.turnogiusto.model.Dipendente;
 import it.disagili.turnogiusto.repository.DipendenteRepository;
 import it.disagili.turnogiusto.service.DipendenteService;
+import it.disagili.turnogiusto.service.ContrattoService;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
@@ -13,6 +14,7 @@ import javafx.stage.Stage;
 import javafx.stage.Window;
 import javafx.stage.Modality;
 import java.io.IOException;
+import java.net.URL;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
@@ -22,14 +24,16 @@ import java.util.List;
 
 /**
  * Gestisce la tabella dell'elenco e il suo aggiornamento dal database.
- * Schermata sospesa dal team: FXML e test grafici sono conservati per il ripristino
- * descritto in docs/interfacce-sospese.md. Il pulsante di modifica contratto ha
- * solo la gestione della selezione: l'apertura del modulo US02 resta da realizzare.
+ * Apre i moduli dedicati alla registrazione US01 e alla modifica contrattuale US02.
+ * Dopo un salvataggio riuscito rilegge l'elenco, senza duplicare righe o modificare
+ * in anticipo il dipendente selezionato.
  */
 public class ElencoDipendentiController {
 
     private final DipendenteRepository repository;
     private final DipendenteService service;
+    private final ContrattoService contrattoService;
+    // Un solo modulo alla volta, sia per la registrazione sia per la modifica.
     private Stage moduloAperto;
     // Impedisce che più clic avviino letture simultanee dello stesso elenco.
     private boolean caricamentoInCorso;
@@ -46,8 +50,16 @@ public class ElencoDipendentiController {
 
     // Permette di provare il percorso elenco-modulo con un service controllato.
     ElencoDipendentiController(DipendenteRepository repository, DipendenteService service) {
+        this(repository, service, new ContrattoService());
+    }
+
+    // Manteniamo i costruttori US01: questo overload permette ai soli test US02
+    // di controllare anche il service contrattuale senza accedere al database.
+    ElencoDipendentiController(DipendenteRepository repository, DipendenteService service,
+                              ContrattoService contrattoService) {
         this.repository = repository;
         this.service = service;
+        this.contrattoService = contrattoService;
     }
 
     // Ogni riga contiene un Dipendente; ogni colonna qui ne mostra un dato come testo.
@@ -159,7 +171,9 @@ public class ElencoDipendentiController {
 
         boolean disabilita = caricamentoInCorso
                 || selezionato == null
+                || selezionato.getId() <= 0
                 || selezionato.getContratto() == null
+                || selezionato.getContratto().getId() <= 0
                 || !selezionato.getContratto().isInVigore();
 
         modificaContrattoButton.setDisable(disabilita);
@@ -258,6 +272,72 @@ public class ElencoDipendentiController {
             finestra.show();
         } catch (IOException errore) {
             mostraMessaggio("Impossibile aprire il modulo di registrazione.");
+        }
+    }
+
+    /** Apre US02 per la riga selezionata e collega chiusura e rilettura dell'elenco. */
+    @FXML
+    private void onModificaContratto() {
+        if (caricamentoInCorso) {
+            return;
+        }
+        // Anche clic ripetuti o chiamate programmatiche devono usare il modulo già aperto.
+        if (moduloAperto != null) {
+            moduloAperto.requestFocus();
+            return;
+        }
+        Dipendente selezionato = dipendentiTable.getSelectionModel().getSelectedItem();
+        // La selezione potrebbe essere cambiata o il contratto scaduto dopo il caricamento.
+        if (selezionato == null || selezionato.getId() <= 0
+                || selezionato.getContratto() == null || selezionato.getContratto().getId() <= 0
+                || !selezionato.getContratto().isInVigore()) {
+            aggiornaPulsanteModifica();
+            mostraMessaggio("Seleziona un dipendente con un contratto valido oggi.");
+            return;
+        }
+        try {
+            URL risorsa = getClass().getResource("contratto-form.fxml");
+            if (risorsa == null) {
+                throw new IOException("Modulo contrattuale non disponibile");
+            }
+            FXMLLoader loader = new FXMLLoader(risorsa);
+            loader.setControllerFactory(tipo -> new ContrattoFormController(contrattoService));
+            Parent modulo = loader.load();
+            ContrattoFormController controller = loader.getController();
+            // Prima carichiamo il FXML, poi riempiamo i controlli già collegati al controller.
+            controller.impostaDipendente(selezionato);
+
+            Stage finestra = new Stage();
+            Window proprietario = modificaContrattoButton.getScene() == null
+                    ? null : modificaContrattoButton.getScene().getWindow();
+            if (proprietario != null) {
+                finestra.initOwner(proprietario);
+                finestra.initModality(Modality.WINDOW_MODAL);
+            } else {
+                finestra.initModality(Modality.APPLICATION_MODAL);
+            }
+            finestra.setTitle("Modifica contratto");
+            finestra.setScene(new Scene(modulo));
+            controller.setOnAnnulla(finestra::close);
+            // La callback arriva soltanto dopo il ritorno del service e quindi dopo il commit.
+            // Il modulo resta aperto per leggere la conferma o l'avviso sui turni.
+            controller.setOnSalvato(this::caricaDipendenti);
+            finestra.setOnCloseRequest(event -> {
+                // Chiudere una finestra non annulla una transazione avviata nel Task.
+                // La X, come Annulla, deve aspettare il completamento del salvataggio.
+                if (!controller.puoChiudere()) {
+                    event.consume();
+                }
+            });
+            // Dopo la chiusura si potrà aprire un nuovo modulo sulla selezione aggiornata.
+            finestra.setOnHidden(event -> moduloAperto = null);
+            moduloAperto = finestra;
+            finestra.show();
+        } catch (IOException errore) {
+            mostraMessaggio("Impossibile aprire il modulo di modifica del contratto.");
+        } catch (IllegalArgumentException errore) {
+            // I controlli del controller possono rilevare una selezione non più valida.
+            mostraMessaggio(errore.getMessage());
         }
     }
 
