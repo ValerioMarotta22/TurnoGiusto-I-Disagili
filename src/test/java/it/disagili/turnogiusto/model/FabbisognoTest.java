@@ -30,6 +30,16 @@ class FabbisognoTest {
     }
 
     @Test
+    void ilNumeroNonPuoSuperareIlLimiteDelDatabase() {
+        // il database salva il numero in una colonna che arriva a 255
+        assertTrue(new Fabbisogno(Ruolo.CUOCO, TipoGiorno.FERIALE, Servizio.CENA, 255).valida().isEmpty());
+
+        Fabbisogno f = new Fabbisogno(Ruolo.CUOCO, TipoGiorno.FERIALE, Servizio.CENA, 256);
+
+        assertTrue(f.valida().contains("Il numero di dipendenti non può superare 255"));
+    }
+
+    @Test
     void ruoloTipoDiGiornoEServizioSonoObbligatori() {
         Fabbisogno f = new Fabbisogno(null, null, null, 2);
 
