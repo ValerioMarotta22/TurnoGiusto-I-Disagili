@@ -1,0 +1,30 @@
+name: Test Maven
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Avvia MySQL 8.4 per i test
+        run: docker compose -p turnogiusto-disponibilita-test -f docker-compose.disponibilita-test.yml up -d --wait
+      - name: Compila e verifica tutti i test
+        run: bash ./mvnw -B -ntp clean verify -Ddisponibilita.test.autostart=false
+      - name: Log MySQL in caso di errore
+        if: failure()
+        run: docker compose -p turnogiusto-disponibilita-test -f docker-compose.disponibilita-test.yml logs
+      - name: Arresta il database di test
+        if: always()
+        run: docker compose -p turnogiusto-disponibilita-test -f docker-compose.disponibilita-test.yml down -v

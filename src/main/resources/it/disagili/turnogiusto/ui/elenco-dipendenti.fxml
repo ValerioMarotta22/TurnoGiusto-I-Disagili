@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<!-- Il controller viene creato al caricamento e riceve i controlli tramite gli fx:id. -->
+<VBox xmlns:fx="http://javafx.com/fxml"
+      fx:controller="it.disagili.turnogiusto.ui.ElencoDipendentiController"
+      spacing="16.0"
+      prefWidth="900.0" prefHeight="500.0">
+
+    <padding>
+        <Insets top="24.0" right="24.0"
+                bottom="24.0" left="24.0"/>
+    </padding>
+
+    <Label text="Dipendenti"
+           style="-fx-font-size: 24px; -fx-font-weight: bold;"/>
+
+    <!-- I gestori onAction richiamano i metodi @FXML del controller. -->
+    <HBox spacing="12.0">
+        <Button fx:id="nuovoDipendenteButton"
+                text="Nuovo dipendente" onAction="#onNuovoDipendente"/>
+        <Button fx:id="modificaContrattoButton"
+                text="Modifica Contratto"
+                onAction="#onModificaContratto"
+                disable="true"/>
+
+
+
+
+
+        <Button fx:id="aggiornaButton"
+                text="Aggiorna elenco" onAction="#caricaDipendenti"/>
+    </HBox>
+
+    <!-- Ogni riga rappresenta un Dipendente. Le cellValueFactory del controller
+         stabiliscono quale campo mostrare in ogni colonna. vgrow usa lo spazio disponibile. -->
+    <TableView fx:id="dipendentiTable" VBox.vgrow="ALWAYS">
+        <!-- Visibile quando la tabella non contiene righe. Gli errori sono mostrati
+             separatamente nella Label, perché non equivalgono a un elenco vuoto. -->
+        <placeholder>
+            <Label text="Nessun dipendente da mostrare"/>
+        </placeholder>
+
+        <columns>
+            <TableColumn fx:id="nomeColumn"
+                         text="Nome" prefWidth="130.0"/>
+            <TableColumn fx:id="cognomeColumn"
+                         text="Cognome" prefWidth="150.0"/>
+            <TableColumn fx:id="ruoloColumn"
+                         text="Ruolo" prefWidth="140.0"/>
+            <TableColumn fx:id="tipoContrattoColumn"
+                         text="Contratto" prefWidth="140.0"/>
+            <TableColumn fx:id="oreColumn"
+                         text="Ore settimanali" prefWidth="130.0"/>
+            <TableColumn fx:id="costoColumn"
+                         text="Costo orario (€)" prefWidth="140.0"/>
+        </columns>
+    </TableView>
+
+    <!-- Messaggi relativi al caricamento dell'elenco -->
+    <Label fx:id="messaggioLabel" wrapText="true"
+           visible="false" managed="false"/>
+
+</VBox>

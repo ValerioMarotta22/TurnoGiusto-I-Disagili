@@ -9,6 +9,9 @@ import java.util.List;
  */
 public class Fabbisogno {
 
+    /** Limite della colonna numero_minimo_dipendenti del database (TINYINT UNSIGNED). */
+    public static final int MAX_NUMERO_DIPENDENTI = 255;
+
     private int id;
     private Ruolo ruolo;
     private TipoGiorno tipoGiorno;
@@ -51,6 +54,8 @@ public class Fabbisogno {
         }
         if (numeroMinimoDipendenti < 0) {
             errori.add("Il numero di dipendenti non può essere negativo");
+        } else if (numeroMinimoDipendenti > MAX_NUMERO_DIPENDENTI) {
+            errori.add("Il numero di dipendenti non può superare " + MAX_NUMERO_DIPENDENTI);
         }
         return errori;
     }

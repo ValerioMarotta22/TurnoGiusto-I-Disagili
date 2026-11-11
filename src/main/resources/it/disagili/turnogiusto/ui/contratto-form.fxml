@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns:fx="http://javafx.com/fxml"
+      fx:controller="it.disagili.turnogiusto.ui.ContrattoFormController"
+      spacing="16.0"
+      prefWidth="560">
+
+    <padding>
+        <Insets top="24.0" right="24.0"
+                bottom="24.0" left="24.0"/>
+
+
+    </padding>
+
+    <!-- font-size controlla la dimensione del carattere del titolo. -->
+    <Label text="Modifica contratto"
+           style="-fx-font-size: 24px; -fx-font-weight: bold;"/>
+
+    <!-- Il controller mostrerà qui il nome del dipendente selezionato nell'elenco.
+         L'fx:id deve corrispondere al campo dipendenteLabel del controller. -->
+    <Label fx:id="dipendenteLabel"
+           text="Dipendente da selezionare"/>
+
+    <GridPane hgap="16.0"  vgap="12.0">
+
+
+        <columnConstraints>
+            <ColumnConstraints prefWidth="160.0"/>
+            <ColumnConstraints hgrow="ALWAYS"/>
+        </columnConstraints>
+
+        <Label text="Tipo di contratto"
+               GridPane.rowIndex="0"
+               GridPane.columnIndex="0"/>
+
+        <!-- Il controller popola questa ComboBox in initialize(). -->
+        <ComboBox fx:id="tipoContrattoCombo"
+                  maxWidth="Infinity"
+                  GridPane.rowIndex="0"
+                  GridPane.columnIndex="1"/>
+
+        <!-- Seconda riga: monte ore settimanale del contratto. -->
+        <Label text="Ore settimanali"
+               GridPane.rowIndex="1"
+               GridPane.columnIndex="0"/>
+
+        <TextField fx:id="oreSettimanaliField"
+                   promptText="Es. 20"
+                   GridPane.rowIndex="1"
+                   GridPane.columnIndex="1"/>
+
+        <!-- Terza riga: costo orario espresso in euro. -->
+        <Label text="Costo orario (€)"
+               GridPane.rowIndex="2"
+               GridPane.columnIndex="0"/>
+
+        <TextField fx:id="costoOrarioField"
+                   promptText="Es. 12,50"
+                   GridPane.rowIndex="2"
+                   GridPane.columnIndex="1"/>
+
+        <!-- La modifica decorre da oggi: questa informazione non è modificabile. -->
+        <Label text="Decorrenza modifica"
+               GridPane.rowIndex="3"
+               GridPane.columnIndex="0"/>
+
+        <Label fx:id="decorrenzaLabel"
+               text="Da oggi"
+               GridPane.rowIndex="3"
+               GridPane.columnIndex="1"/>
+
+        <!-- Una scadenza vuota indica un contratto senza data di fine. -->
+        <Label text="Data di fine (facoltativa)"
+               wrapText="true"
+               GridPane.rowIndex="4"
+               GridPane.columnIndex="0"/>
+
+        <DatePicker fx:id="dataFinePicker"
+                    maxWidth="Infinity"
+                    GridPane.rowIndex="4"
+                    GridPane.columnIndex="1"/>
+
+    </GridPane>
+
+    <!-- Il controller mostrerà quest'area quando avrà un messaggio da comunicare. -->
+    <Label fx:id="messaggioLabel"
+           wrapText="true"
+           visible="false"
+           managed="false"/>
+
+    <!-- HBox dispone i pulsanti uno accanto all'altro, allineati a destra. -->
+    <HBox spacing="12.0" alignment="CENTER_RIGHT">
+
+        <!-- Il clic richiama onAnnulla() nel ContrattoFormController. -->
+        <Button fx:id="annullaButton"
+                text="Annulla"
+                onAction="#onAnnulla"/>
+
+        <!-- Il controller legge i campi e avvia il service in background. -->
+        <Button fx:id="salvaButton"
+                text="Salva"
+                onAction="#onSalva"/>
+
+    </HBox>
+
+</VBox>
+
+

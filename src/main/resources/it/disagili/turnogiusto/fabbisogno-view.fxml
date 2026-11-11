@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- VBox = contenitore che mette gli elementi uno SOTTO l'altro
+fx:controller = la classe java che comanda questa schermata (per ora non esiste, fino allo step 2)
+-->
+<?import javafx.scene.layout.VBox?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.Button?>
+<VBox spacing="12.0" xmlns:fx="http://javafx.com/fxml"
+      fx:controller="it.disagili.turnogiusto.controller.FabbisognoController">
+
+    <!-- margine interno per non attaccare tutto ai bordi della finestra -->
+    <padding>
+        <Insets bottom="16.0" left="16.0" right="16.0" top="16.0"/>
+    </padding>
+
+    <!-- Titolo -->
+    <Label text="Fabbisogno di personale"
+           style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+
+    <!-- tabelle fabbisogni già inseriti. Ogni TableColumn è una colonna; il fx:id serve al controller per collegarle ai dati -->
+    <TableView fx:id="tabella" prefHeight="240.0">
+        <columns>
+            <TableColumn fx:id="colonnaRuolo" text="Ruolo" prefWidth="140.0"/>
+            <TableColumn fx:id="colonnaTipoGiorno" text="Tipo di giorno" prefWidth="140.0"/>
+            <TableColumn fx:id="colonnaServizio" text="Servizio" prefWidth="110.0"/>
+            <TableColumn fx:id="colonnaNumero" text="N. dipendenti" prefWidth="110.0"/>
+        </columns>
+    </TableView>
+
+    <!-- MODULO HBox = contenitore che mette gli elementi uno ACCANTO all'altro
+    ComboBox = menu a tendina, promptText = testo grigio finchè non scelgo -->
+    <HBox spacing="8.0" alignment="CENTER_LEFT">
+        <ComboBox fx:id="ruoloCombo" promptText="Ruolo"/>
+        <ComboBox fx:id="tipoGiornoCombo" promptText="Tipo di giorno"/>
+        <ComboBox fx:id="servizioCombo" promptText="Servizio"/>
+        <TextField fx:id="numeroField" promptText="N. dipendenti" prefWidth="110.0"/>
+        <!--bottone che quando lo premo chiama il metodo onSalva() del controller -->
+        <Button text="Salva" onAction="#onSalva"/>
+    </HBox>
+
+    <Label fx:id="messaggio"/>
+</VBox>

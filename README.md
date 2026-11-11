@@ -48,7 +48,7 @@ La prima volta scarica l'immagine di MySQL (qualche minuto).
 .\mvnw javafx:run
 ```
 
-Premendo il bottone **Hello!** deve comparire "Database collegato: 6 dipendenti". Non avviare la classe con il pulsante Play standard di IntelliJ: JavaFX da solo non parte, usare sempre `javafx:run`.
+Si apre la finestra di TurnoGiusto con il menu in alto. Da **Fabbisogno > Fabbisogno di personale** si apre la schermata del fabbisogno: nella tabella devono comparire le righe di prova. Non avviare la classe con il pulsante Play standard di IntelliJ: JavaFX da solo non parte, usare sempre `javafx:run`.
 
 6. Eseguire i test:
 
@@ -56,7 +56,8 @@ Premendo il bottone **Hello!** deve comparire "Database collegato: 6 dipendenti"
 .\mvnw test
 ```
 
-Il test di collegamento al database viene **saltato** (non fallisce) se il database non è acceso.
+I test che usano il database di Docker vengono **saltati** (non falliscono) se il database non è acceso.
+
 Attenzione: `DatabaseTest` e i test di US-03/04 non usano il database di Docker, ma avviano un MySQL temporaneo e richiedono un MySQL Server installato sul PC (`mysqld`). Se non c'è, lanciare i test con `.\mvnw test -DexcludedGroups=database`.
 
 ## 3. Struttura del progetto
