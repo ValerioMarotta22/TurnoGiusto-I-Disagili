@@ -1,9 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<?import javafx.scene.layout.Pane?>
-<!-- Radice vuota: la schermata originale e sospesa e conservata qui sotto. -->
-<Pane xmlns:fx="http://javafx.com/fxml/1"/>
-<!--
-<?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
@@ -33,5 +28,3 @@
     <Label text="“Senza disponibilità inserite” indica l'assenza di fasce comunicate, non una disponibilità illimitata." wrapText="true" styleClass="nota"/>
     <Label fx:id="messaggio" text="Premi Aggiorna per consultare le disponibilità." wrapText="true" minHeight="42" styleClass="stato"/>
 </VBox>
-
--->

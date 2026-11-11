@@ -5,6 +5,12 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.layout.StackPane;
+import it.disagili.turnogiusto.service.DisponibilitaService;
+import it.disagili.turnogiusto.ui.ConsultazioneDisponibilitaController;
+import it.disagili.turnogiusto.ui.GestioneDisponibilitaController;
+import javafx.scene.Parent;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
 
 import java.io.IOException;
 
@@ -41,15 +47,47 @@ public class MainController {
         mostraNonDisponibile("Registrazione dipendenti e contratti (US-01, US-02)");
     }
 
-    // Come sopra, per US-03 e US-04.
     @FXML
     private void apriDisponibilita() {
-        mostraNonDisponibile("Disponibilità part-time (US-03, US-04)");
-    }
+        try {
+            // PASSO 1 - un FXMLLoader per ciascuna delle due schermate.
+            FXMLLoader gestioneLoader = new FXMLLoader(MainController.class.getResource(
+                    CARTELLA_SCHERMATE + "ui/gestione-disponibilita-view.fxml"));
+            FXMLLoader consultazioneLoader = new FXMLLoader(MainController.class.getResource(
+                    CARTELLA_SCHERMATE + "ui/consultazione-disponibilita-view.fxml"));
 
-    // ======================================================================
-    // METODI DI AIUTO
-    // ======================================================================
+            // PASSO 2 - load() costruisce la schermata e, in automatico, il suo controller.
+            Parent gestioneVista = gestioneLoader.load();
+            Parent consultazioneVista = consultazioneLoader.load();
+            GestioneDisponibilitaController gestione = gestioneLoader.getController();
+            ConsultazioneDisponibilitaController consultazione = consultazioneLoader.getController();
+
+            // PASSO 3 - i due controller usano lo STESSO service. Dopo ogni
+            // salvataggio, la gestione chiama consultazione::aggiorna.
+            DisponibilitaService servizio = new DisponibilitaService();
+            consultazione.configura(servizio);
+            gestione.configura(servizio, consultazione::aggiorna);
+
+            // PASSO 4 - due schede in un TabPane; "non chiudibili" toglie la X.
+            Tab gestioneTab = new Tab("Gestione — dipendente", gestioneVista);
+            Tab consultazioneTab = new Tab("Consultazione — titolare", consultazioneVista);
+            gestioneTab.setClosable(false);
+            consultazioneTab.setClosable(false);
+            TabPane schede = new TabPane(gestioneTab, consultazioneTab);
+            // Ogni volta che si apre la scheda del titolare, i dati si ricaricano.
+            consultazioneTab.setOnSelectionChanged(evento -> {
+                if (consultazioneTab.isSelected()) consultazione.aggiorna();
+            });
+
+            // PASSO 5 - le schede vanno al centro della finestra, poi si
+            // caricano i dipendenti nel menu a tendina della gestione.
+            contenuto.getChildren().setAll(schede);
+            gestione.caricaDipendenti();
+        } catch (IOException e) {
+            // FXML mancante o con un refuso: lo dico a schermo.
+            mostraMessaggio("Impossibile aprire le disponibilità: " + e.getMessage());
+        }
+    }
 
     // Carica un file FXML e lo mette al centro della finestra.
     private void caricaSchermata(String nomeFile) {

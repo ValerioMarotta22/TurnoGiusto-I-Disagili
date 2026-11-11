@@ -1,4 +1,4 @@
-/* CSS SOSPESO: conservato come riferimento, in attesa del CSS condiviso.
+CSS SOSPESO conservato come riferimento, in attesa del CSS condiviso.
 .pagina { -fx-background-color: #f7f9fc; -fx-font-family: "Segoe UI"; -fx-font-size: 13px; }
 .titolo { -fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #17345c; }
 .sottotitolo { -fx-font-weight: bold; }
@@ -9,5 +9,3 @@
 .errore { -fx-background-color: #fce8e6; -fx-text-fill: #9c2424; }
 .table-cell { -fx-padding: 10; -fx-alignment: CENTER-LEFT; }
 .list-cell { -fx-padding: 10; }
-
-*/

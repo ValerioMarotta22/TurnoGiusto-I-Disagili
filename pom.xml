@@ -54,9 +54,6 @@
                 <directory>src/main/resources</directory>
                 <excludes>
                     <exclude>it/disagili/turnogiusto/hello-view.fxml</exclude>
-                    <exclude>it/disagili/turnogiusto/ui/gestione-disponibilita-view.fxml</exclude>
-                    <exclude>it/disagili/turnogiusto/ui/consultazione-disponibilita-view.fxml</exclude>
-                    <exclude>it/disagili/turnogiusto/ui/disponibilita.css</exclude>
                 </excludes>
             </resource>
         </resources>
@@ -116,25 +113,6 @@
     <profiles>
         <profile>
             <id>verifica-disponibilita</id>
-        </profile>
-        <profile>
-            <id>disponibilita</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.openjfx</groupId>
-                        <artifactId>javafx-maven-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>default-cli</id>
-                                <configuration>
-                                    <mainClass>it.disagili.turnogiusto.DisponibilitaLauncher</mainClass>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
         </profile>
     </profiles>
 </project>
