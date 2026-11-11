@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- FINESTRA PRINCIPALE di TurnoGiusto.
+     E' composta da una barra del menu in alto e da un'area centrale: quando si
+     sceglie una voce di menu, la schermata corrispondente viene caricata
+     nell'area centrale (lo fa MainController).
+
+     PER AGGIUNGERE UNA SCHERMATA (ognuno la sua, in 3 passi):
+       1. crea il tuo file FXML (come fabbisogno-view.fxml) e il tuo controller;
+       2. qui sotto, scrivi/modifica la voce di menu con onAction="#apriLaTuaSchermata";
+       3. in MainController, scrivi il metodo apriLaTuaSchermata() che chiama
+          caricaSchermata("il-tuo-file.fxml"). -->
+
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Menu?>
+<?import javafx.scene.control.MenuBar?>
+<?import javafx.scene.control.MenuItem?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.StackPane?>
+
+<!-- BorderPane = contenitore con 5 zone (top, bottom, left, right, center).
+     Qui usiamo solo "top" per il menu e "center" per la schermata. -->
+<BorderPane xmlns:fx="http://javafx.com/fxml"
+            fx:controller="it.disagili.turnogiusto.controller.MainController">
+
+    <!-- ZONA ALTA: la barra del menu. Ogni <Menu> e' una voce della barra,
+         ogni <MenuItem> una voce a tendina. onAction="#nome" chiama il metodo
+         con quel nome in MainController. -->
+    <top>
+        <MenuBar>
+            <Menu text="Dipendenti">
+                <MenuItem text="Registrazione e contratti" onAction="#apriDipendenti"/>
+            </Menu>
+            <Menu text="Disponibilità">
+                <MenuItem text="Disponibilità part-time" onAction="#apriDisponibilita"/>
+            </Menu>
+            <Menu text="Fabbisogno">
+                <MenuItem text="Fabbisogno di personale" onAction="#apriFabbisogno"/>
+            </Menu>
+        </MenuBar>
+    </top>
+
+    <!-- ZONA CENTRALE: StackPane = contenitore che mostra un elemento alla
+         volta. Il fx:id serve a MainController per sostituirne il contenuto.
+         All'avvio mostra solo un messaggio di benvenuto. -->
+    <center>
+        <StackPane fx:id="contenuto">
+            <Label text="Benvenuto in TurnoGiusto: scegli una voce dal menu."/>
+        </StackPane>
+    </center>
+</BorderPane>
