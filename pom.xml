@@ -48,7 +48,7 @@
     </dependencies>
 
     <build>
-        <!-- Le viste e il CSS originali restano commentati nei sorgenti, fuori dal JAR. -->
+        <!-- La schermata dimostrativa è archiviata nei sorgenti. -->
         <resources>
             <resource>
                 <directory>src/main/resources</directory>
@@ -57,18 +57,6 @@
                 </excludes>
             </resource>
         </resources>
-        <testResources>
-            <testResource>
-                <directory>src/test/resources</directory>
-            </testResource>
-            <testResource>
-                <directory>db/init</directory>
-                <targetPath>db</targetPath>
-                <includes>
-                    <include>01_schema.sql</include>
-                </includes>
-            </testResource>
-        </testResources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -109,10 +97,4 @@
             </plugin>
         </plugins>
     </build>
-    <!-- Il vecchio profilo resta accettato: ora i test JDBC partono anche senza profilo. -->
-    <profiles>
-        <profile>
-            <id>verifica-disponibilita</id>
-        </profile>
-    </profiles>
 </project>
