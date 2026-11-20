@@ -4,12 +4,17 @@
  import it.disagili.turnogiusto.model.Dipendente;
  import it.disagili.turnogiusto.service.DisponibilitaService;
  import it.disagili.turnogiusto.service.RiepilogoDisponibilita;
+ import javafx.beans.binding.Bindings;
  import javafx.beans.property.SimpleStringProperty;
  import javafx.concurrent.Task;
  import javafx.fxml.FXML;
+ import javafx.scene.control.ContentDisplay;
  import javafx.scene.control.Label;
+ import javafx.scene.control.ScrollPane;
+ import javafx.scene.control.TableCell;
  import javafx.scene.control.TableColumn;
  import javafx.scene.control.TableView;
+ import javafx.scene.layout.Region;
  import javafx.scene.layout.VBox;
 
  import java.util.ArrayList;
@@ -17,6 +22,8 @@
 
  /** US-04: ogni part-time ha una riga, anche quando non ha inserito fasce. */
  public class ConsultazioneDisponibilitaController {
+
+     private static final double ALTEZZA_MASSIMA_FASCE = 144;
 
      @FXML private VBox contenuto;
      @FXML private TableView<RiepilogoDisponibilita> tabella;
@@ -38,7 +45,39 @@
                  new SimpleStringProperty(riga.getValue().getDipendente().getRuolo().toString()));
          disponibilitaColonna.setCellValueFactory(riga ->
                  new SimpleStringProperty(riga.getValue().getTestoDisponibilita()));
+         disponibilitaColonna.setCellFactory(colonna -> creaCellaDisponibilita());
          tabella.setPlaceholder(new Label("Premi Aggiorna per caricare le disponibilità."));
+     }
+
+     /** Adatta la riga alle fasce e permette di scorrere gli elenchi più lunghi. */
+     private TableCell<RiepilogoDisponibilita, String> creaCellaDisponibilita() {
+         Label testo = new Label();
+         testo.setWrapText(true);
+         testo.setMaxWidth(Double.MAX_VALUE);
+         testo.setMinHeight(Region.USE_PREF_SIZE);
+
+         ScrollPane fasce = new ScrollPane(testo);
+         fasce.getStyleClass().add("fasce-disponibilita");
+         fasce.setFitToWidth(true);
+         fasce.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+         fasce.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+         // Calcoliamo l'altezza prima che la tabella disponga la riga, anche quando il testo va a capo.
+         fasce.prefViewportHeightProperty().bind(Bindings.createDoubleBinding(() -> {
+             double larghezzaTesto = Math.max(1, disponibilitaColonna.getWidth() - 36);
+             return Math.clamp(testo.prefHeight(larghezzaTesto), 24, ALTEZZA_MASSIMA_FASCE);
+         }, disponibilitaColonna.widthProperty(), testo.textProperty(), testo.fontProperty(), testo.skinProperty()));
+
+         return new TableCell<>() {
+             @Override
+             protected void updateItem(String valore, boolean vuota) {
+                 super.updateItem(valore, vuota);
+                 setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+                 testo.setText(vuota ? null : valore);
+                 // La tabella riusa le celle durante lo scorrimento.
+                 fasce.setVvalue(fasce.getVmin());
+                 setGraphic(vuota ? null : fasce);
+             }
+         };
      }
 
      public void configura(DisponibilitaService servizio) {
