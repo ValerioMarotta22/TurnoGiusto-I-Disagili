@@ -159,6 +159,7 @@ docker compose exec db mysql -uturnogiusto -pturnogiusto turnogiusto
 | `mvnw` dice che non trova `JAVA_HOME` | Impostare la variabile d'ambiente `JAVA_HOME` sulla cartella della JDK 21 e riavviare IntelliJ. |
 | Dopo un `pull` mancano classi o dipendenze | Pannello Maven, *Reload All Maven Projects*. |
 | Ho cambiato lo schema ma il database non cambia | Gli script partono solo alla creazione: `docker compose down -v` e poi `docker compose up -d --wait`. |
+| `mvnw test` fallisce con "MySQL Server locale non trovato" | I test del database cercano un MySQL Server installato sul PC. Se non c'è, escluderli con `.\mvnw test -DexcludedGroups=database`. |
 ---
 
 By IDisagili.
