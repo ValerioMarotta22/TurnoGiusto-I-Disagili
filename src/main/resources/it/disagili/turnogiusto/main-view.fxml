@@ -37,6 +37,9 @@
             <Menu text="Fabbisogno">
                 <MenuItem text="Fabbisogno di personale" onAction="#apriFabbisogno"/>
             </Menu>
+            <Menu text="Turni">
+                <MenuItem text="Genera piano settimanale" onAction="#apriGenerazioneTurni"/>
+            </Menu>
         </MenuBar>
     </top>
 
