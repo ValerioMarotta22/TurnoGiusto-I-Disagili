@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<!-- La bozza si apre nell'area centrale e usa gli stessi stili delle disponibilità. -->
+<VBox spacing="12" stylesheets="@disponibilita.css" styleClass="pagina"
+      xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="it.disagili.turnogiusto.ui.GenerazioneTurniController">
+    <padding>
+        <Insets top="20" right="20" bottom="20" left="20"/>
+    </padding>
+
+    <Label text="Genera piano settimanale" styleClass="titolo"/>
+    <VBox fx:id="impostazioni" spacing="10">
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Label text="Lunedì della settimana"/>
+            <DatePicker fx:id="settimana" editable="false" prefWidth="145" accessibleText="Lunedì della settimana"/>
+            <Button fx:id="genera" text="Genera bozza" onAction="#onGenera" styleClass="principale"/>
+        </HBox>
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Label text="Pranzo da"/>
+            <ComboBox fx:id="inizioPranzo" editable="true" accessibleText="Inizio pranzo" prefWidth="105" visibleRowCount="8"/>
+            <Label text="a"/>
+            <ComboBox fx:id="finePranzo" editable="true" accessibleText="Fine pranzo" prefWidth="105" visibleRowCount="8"/>
+            <Label text="Cena da"/>
+            <ComboBox fx:id="inizioCena" editable="true" accessibleText="Inizio cena" prefWidth="105" visibleRowCount="8"/>
+            <Label text="a"/>
+            <ComboBox fx:id="fineCena" editable="true" accessibleText="Fine cena" prefWidth="105" visibleRowCount="8"/>
+        </HBox>
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Label text="Giorni festivi" styleClass="sottotitolo" minWidth="90"/>
+            <FlowPane fx:id="festivi" hgap="8" vgap="6" alignment="CENTER_LEFT" minWidth="0" HBox.hgrow="ALWAYS"/>
+        </HBox>
+    </VBox>
+
+    <TreeTableView fx:id="tabella" showRoot="false" VBox.vgrow="ALWAYS">
+        <columnResizePolicy>
+            <TreeTableView fx:constant="CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN"/>
+        </columnResizePolicy>
+        <placeholder>
+            <Label text="Qui compariranno le assegnazioni e i posti scoperti."/>
+        </placeholder>
+        <columns>
+            <TreeTableColumn fx:id="orarioColonna" text="Giorno, servizio e orario" prefWidth="275" sortable="false"/>
+            <TreeTableColumn fx:id="ruoloColonna" text="Ruolo" prefWidth="110" sortable="false"/>
+            <TreeTableColumn fx:id="richiestiColonna" text="Richiesti" prefWidth="75" sortable="false" style="-fx-alignment: CENTER;"/>
+            <TreeTableColumn fx:id="scopertiColonna" text="Scoperti" prefWidth="75" maxWidth="100" sortable="false"/>
+            <TreeTableColumn fx:id="assegnatiColonna" text="Assegnati" prefWidth="220" minWidth="100" sortable="false"/>
+        </columns>
+    </TreeTableView>
+    <Label fx:id="messaggio" text="Scegli la settimana e genera la bozza." styleClass="stato" wrapText="true"/>
+</VBox>
