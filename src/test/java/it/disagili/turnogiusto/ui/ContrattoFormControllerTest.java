@@ -42,6 +42,13 @@ import static org.junit.jupiter.api.Assertions.*;
 @ExtendWith(JavaFxTestSupport.class)
 class ContrattoFormControllerTest {
 
+    /** Testo atteso dalla UI per un cambio programmato, non già attivo. */
+    private String confermaProgrammazione() {
+        return "Cambio contratto programmato dal "
+                + ContrattoService.calcolaDecorrenza(LocalDate.now())
+                .format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + ". ";
+    }
+
     /** Da chiamare sul thread JavaFX: carica anche il controller e initialize(). */
     private FXMLLoader caricaModulo() throws Exception {
         return caricaModulo(new ContrattoService());
@@ -108,8 +115,9 @@ class ContrattoFormControllerTest {
             assertEquals(TipoContratto.PART_TIME, tipi.getValue());
             assertEquals("20", ((TextField) loader.getNamespace().get("oreSettimanaliField")).getText());
             assertEquals("12,50", ((TextField) loader.getNamespace().get("costoOrarioField")).getText());
-            // La decorrenza è oggi, non la data iniziale del contratto precedente.
-            assertEquals(oggi.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+            // La UI deve usare la stessa regola del service, già verificata con date fisse.
+            assertEquals(ContrattoService.calcolaDecorrenza(oggi)
+                            .format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
                     ((Label) loader.getNamespace().get("decorrenzaLabel")).getText());
             assertEquals(fine, ((DatePicker) loader.getNamespace().get("dataFinePicker")).getValue());
 
@@ -348,7 +356,7 @@ class ContrattoFormControllerTest {
             // Liberiamo il service anche su test fallito: non lasciamo il thread in attesa.
             prosegui.countDown();
         }
-        assertEquals("Contratto aggiornato correttamente.", esito.get(10, TimeUnit.SECONDS));
+        assertEquals(confermaProgrammazione(), esito.get(10, TimeUnit.SECONDS));
         suJavaFx(() -> {
             FXMLLoader loader = modulo.get();
             ContrattoFormController controller = loader.getController();
@@ -366,7 +374,7 @@ class ContrattoFormControllerTest {
         assertFalse(threadGrafico.get(), "Il service deve lavorare fuori dal thread grafico");
         assertEquals(0, ricevuto.get().getId());
         assertEquals(7, ricevuto.get().getDipendenteId());
-        assertEquals(oggi, ricevuto.get().getDataInizio());
+        assertEquals(ContrattoService.calcolaDecorrenza(oggi), ricevuto.get().getDataInizio());
         assertEquals(fine, ricevuto.get().getDataFine());
         assertEquals(new BigDecimal("15.75"), ricevuto.get().getCostoOrario());
     }
@@ -416,7 +424,7 @@ class ContrattoFormControllerTest {
                 salva(loader).fire();
                 return finito;
             });
-            assertEquals("Contratto aggiornato correttamente.", riprova.get(10, TimeUnit.SECONDS));
+            assertEquals(confermaProgrammazione(), riprova.get(10, TimeUnit.SECONDS));
             suJavaFx(() -> {
                 assertEquals(2, chiamate.get());
                 assertEquals(1, aggiornamenti.get());
@@ -450,11 +458,13 @@ class ContrattoFormControllerTest {
             });
             String messaggio = esito.get(10, TimeUnit.SECONDS);
             if (stato == Stato.PRESENTI) {
-                assertEquals("Contratto aggiornato. Il monte ore è diminuito: ricontrolla i turni già pianificati.", messaggio);
+                assertEquals(confermaProgrammazione() + "Il monte ore diminuisce: ricontrolla i turni "
+                        + "pianificati dalla nuova decorrenza.", messaggio);
             } else if (stato == Stato.NON_DISPONIBILE) {
-                assertEquals("Contratto aggiornato. Non è stato possibile verificare se ci sono turni da ricontrollare.", messaggio);
+                assertEquals(confermaProgrammazione()
+                        + "Non è stato possibile verificare se ci sono turni da ricontrollare.", messaggio);
             } else {
-                assertEquals("Contratto aggiornato correttamente.", messaggio);
+                assertEquals(confermaProgrammazione(), messaggio);
             }
         }
     }
