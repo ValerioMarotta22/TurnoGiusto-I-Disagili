@@ -1,11 +1,9 @@
 package it.disagili.turnogiusto.repository;
 
-import it.disagili.turnogiusto.support.MySqlDisponibilitaExtension;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 import it.disagili.turnogiusto.model.Ruolo;
 
@@ -21,10 +19,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Controlla lo schema condiviso su un database di test isolato.
- * Funziona con Maven e con il runner JUnit di IntelliJ, senza opzioni obbligatorie.
+ * Controlla lo schema condiviso nel MySQL usato dall'applicazione.
  */
-@ExtendWith(MySqlDisponibilitaExtension.class)
 @Tag("database")
 class DatabaseTest {
 
@@ -32,7 +28,7 @@ class DatabaseTest {
 
     @BeforeAll
     static void connect() throws SQLException {
-        connection = MySqlDisponibilitaExtension.apriConnessione();
+        connection = Database.getConnection();
     }
 
     @AfterAll
@@ -52,7 +48,7 @@ class DatabaseTest {
             }
         }
         assertEquals(Set.of("contratto", "dipendente", "disponibilita", "fabbisogno"), tabelle,
-                "Lo schema del database di test deve corrispondere a db/init/01_schema.sql");
+                "Lo schema del database deve corrispondere a db/init/01_schema.sql");
     }
 
     /** Le colonne ENUM del database devono avere gli stessi valori dell'enum Java Ruolo. */

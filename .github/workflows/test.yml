@@ -19,12 +19,12 @@ jobs:
           java-version: '21'
           cache: maven
       - name: Avvia MySQL 8.4 per i test
-        run: docker compose -p turnogiusto-disponibilita-test -f docker-compose.disponibilita-test.yml up -d --wait
+        run: docker compose up -d --wait
       - name: Compila e verifica tutti i test
-        run: bash ./mvnw -B -ntp clean verify -Ddisponibilita.test.autostart=false
+        run: xvfb-run -a bash ./mvnw -B -ntp clean verify
       - name: Log MySQL in caso di errore
         if: failure()
-        run: docker compose -p turnogiusto-disponibilita-test -f docker-compose.disponibilita-test.yml logs
+        run: docker compose logs db
       - name: Arresta il database di test
         if: always()
-        run: docker compose -p turnogiusto-disponibilita-test -f docker-compose.disponibilita-test.yml down -v
+        run: docker compose down

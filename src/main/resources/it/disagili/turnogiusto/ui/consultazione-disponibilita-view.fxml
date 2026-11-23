@@ -19,10 +19,13 @@
     </HBox>
     <Label text="Finestre ricorrenti ogni settimana dei dipendenti con contratto part-time valido oggi." wrapText="true"/>
     <TableView fx:id="tabella" VBox.vgrow="ALWAYS">
+        <columnResizePolicy>
+            <TableView fx:constant="CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN"/>
+        </columnResizePolicy>
         <columns>
             <TableColumn fx:id="dipendenteColonna" text="Dipendente" prefWidth="220"/>
             <TableColumn fx:id="ruoloColonna" text="Ruolo" prefWidth="150"/>
-            <TableColumn fx:id="disponibilitaColonna" text="Giorni e fasce orarie" prefWidth="560"/>
+            <TableColumn fx:id="disponibilitaColonna" text="Giorni e fasce orarie" minWidth="190" prefWidth="560"/>
         </columns>
     </TableView>
     <Label text="“Senza disponibilità inserite” indica l'assenza di fasce comunicate, non una disponibilità illimitata." wrapText="true" styleClass="nota"/>

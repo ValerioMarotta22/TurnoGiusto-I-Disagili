@@ -7,6 +7,11 @@ import it.disagili.turnogiusto.service.RiepilogoDisponibilita;
 import it.disagili.turnogiusto.support.DatabaseDisponibilitaSupport;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -15,14 +20,14 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Integrazione reale MySQL, eseguibile anche direttamente da IntelliJ. */
+/** Verifica lettura, scrittura e consultazione sul MySQL di Docker Compose. */
 class DisponibilitaRepositoryTest extends DatabaseDisponibilitaSupport {
 
-    private final DisponibilitaRepository lettura = new DisponibilitaRepository(this::apriConnessione);
-    private final DipendentiDisponibilitaJdbc dipendenti = new DipendentiDisponibilitaJdbc(this::apriConnessione);
+    private final DisponibilitaRepository lettura = new DisponibilitaRepository();
+    private final DipendentiDisponibilitaJdbc dipendenti = new DipendentiDisponibilitaJdbc();
     private final SalvataggioDisponibilitaRepository scrittura =
-            new SalvataggioDisponibilitaRepository(dipendenti, this::apriConnessione);
-    private final DisponibilitaService servizio = new DisponibilitaService(dipendenti, this::apriConnessione);
+            new SalvataggioDisponibilitaRepository(dipendenti);
+    private final DisponibilitaService servizio = new DisponibilitaService(dipendenti);
 
     private Disponibilita fascia(int id, DayOfWeek giorno, int inizio, int fine) {
         return new Disponibilita(id, giorno, LocalTime.of(inizio, 0), LocalTime.of(fine, 0));
@@ -66,21 +71,50 @@ class DisponibilitaRepositoryTest extends DatabaseDisponibilitaSupport {
     void rollbackRipristinaAncheGliIdDopoErroreNelSecondoInserimento() throws SQLException {
         scrittura.sostituisciPerDipendente(giulia, List.of(fascia(giulia, DayOfWeek.MONDAY, 18, 23)));
         int idOriginale = lettura.trovaPerDipendente(giulia).get(0).getId();
-        // Il trigger esiste solo nel database di test e fa fallire la seconda INSERT.
-        esegui("""
-                CREATE TRIGGER test_errore_disponibilita BEFORE INSERT ON disponibilita
-                FOR EACH ROW BEGIN
-                    IF NEW.ora_inizio = '09:00:00' THEN
-                        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Errore di prova';
-                    END IF;
-                END
-                """);
-        assertThrows(SQLException.class, () -> scrittura.sostituisciPerDipendente(giulia, List.of(
-                fascia(giulia, DayOfWeek.TUESDAY, 8, 12), fascia(giulia, DayOfWeek.WEDNESDAY, 9, 13))));
+        SalvataggioDisponibilitaRepository scritturaConErrore =
+                new SalvataggioDisponibilitaRepository(dipendenti, this::connessioneConSecondoInserimentoNonValido);
+        SQLException errore = assertThrows(SQLException.class, () -> scritturaConErrore.sostituisciPerDipendente(
+                giulia, List.of(fascia(giulia, DayOfWeek.TUESDAY, 8, 12),
+                        fascia(giulia, DayOfWeek.WEDNESDAY, 9, 13))));
+        assertTrue(errore.getMessage().contains("ck_disponibilita_giorno"));
         List<Disponibilita> dopo = lettura.trovaPerDipendente(giulia);
         assertEquals(1, dopo.size());
         assertEquals(idOriginale, dopo.get(0).getId());
         assertEquals(LocalTime.of(18, 0), dopo.get(0).getOraInizio());
+    }
+
+    /** Fa scattare un CHECK MySQL sul secondo inserimento, usando la transazione reale. */
+    private Connection connessioneConSecondoInserimentoNonValido() throws SQLException {
+        Connection connessione = Database.getConnection();
+        return (Connection) Proxy.newProxyInstance(Connection.class.getClassLoader(),
+                new Class<?>[]{Connection.class}, (proxy, metodo, argomenti) -> {
+                    Object risultato = invocaJdbc(connessione, metodo, argomenti);
+                    if (metodo.getName().equals("prepareStatement") && argomenti[0] instanceof String sql
+                            && sql.startsWith("INSERT INTO disponibilita")) {
+                        return statementConSecondoInserimentoNonValido((PreparedStatement) risultato);
+                    }
+                    return risultato;
+                });
+    }
+
+    private PreparedStatement statementConSecondoInserimentoNonValido(PreparedStatement statement) {
+        int[] inserimenti = {0};
+        return (PreparedStatement) Proxy.newProxyInstance(PreparedStatement.class.getClassLoader(),
+                new Class<?>[]{PreparedStatement.class}, (proxy, metodo, argomenti) -> {
+                    if (metodo.getName().equals("executeUpdate") && ++inserimenti[0] == 2) {
+                        // Il parametro 2 è il giorno della settimana: MySQL accetta solo da 1 a 7.
+                        statement.setInt(2, 8);
+                    }
+                    return invocaJdbc(statement, metodo, argomenti);
+                });
+    }
+
+    private Object invocaJdbc(Object destinatario, Method metodo, Object[] argomenti) throws Throwable {
+        try {
+            return metodo.invoke(destinatario, argomenti);
+        } catch (InvocationTargetException errore) {
+            throw errore.getCause();
+        }
     }
 
     @Test
@@ -138,7 +172,9 @@ class DisponibilitaRepositoryTest extends DatabaseDisponibilitaSupport {
     @Test
     void trovaTuttiRispettaIlContrattoConcordatoConAntonio() throws SQLException {
         aggiungiContratto(sara, "FULL_TIME", LocalDate.now().minusMonths(2), LocalDate.now().minusMonths(1));
-        List<Dipendente> tutti = dipendenti.trovaTutti();
+        List<Dipendente> tutti = dipendenti.trovaTutti().stream()
+                .filter(dipendente -> dipendenteDiProva(dipendente.getId()))
+                .toList();
         assertEquals(5, tutti.size());
         assertEquals(giulia, tutti.get(0).getId());
         assertEquals(paolo, tutti.get(1).getId());
@@ -150,7 +186,9 @@ class DisponibilitaRepositoryTest extends DatabaseDisponibilitaSupport {
     @Test
     void consultazioneIncludePaoloSenzaFasce() throws SQLException {
         scrittura.sostituisciPerDipendente(giulia, List.of(fascia(giulia, DayOfWeek.MONDAY, 18, 23)));
-        List<RiepilogoDisponibilita> righe = servizio.consulta();
+        List<RiepilogoDisponibilita> righe = servizio.consulta().stream()
+                .filter(riga -> dipendenteDiProva(riga.getDipendente().getId()))
+                .toList();
         assertEquals(3, righe.size());
         assertEquals(paolo, righe.get(1).getDipendente().getId());
         assertEquals("senza disponibilità inserite", righe.get(1).getTestoDisponibilita());

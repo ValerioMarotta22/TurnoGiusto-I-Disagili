@@ -56,9 +56,7 @@ Si apre la finestra di TurnoGiusto con il menu in alto. Da **Fabbisogno > Fabbis
 .\mvnw test
 ```
 
-I test che usano il database di Docker vengono **saltati** (non falliscono) se il database non è acceso.
-
-Attenzione: `DatabaseTest` e i test di US-03/04 non usano il database di Docker, ma avviano un MySQL temporaneo e richiedono un MySQL Server installato sul PC (`mysqld`). Se non c'è, lanciare i test con `.\mvnw test -DexcludedGroups=database`.
+`DatabaseTest` e i test di integrazione US03/04 usano il MySQL dell'applicazione. Avvia Docker Desktop e `docker compose up -d --wait` prima di eseguirli. Per i comandi delle disponibilità, vedi [README US03 e US04](<docs/README us 03 04.md>).
 
 ## 3. Struttura del progetto
 ```
@@ -99,7 +97,7 @@ Regole pratiche:
 - **Gli errori di validazione** arrivano dal `valida()` del model come elenco di messaggi: la schermata li mostra, non li riscrive.
 - **Enum e database**: nel database si salva `name()` (ad esempio `AIUTO_CUOCO`), nella schermata si mostra `toString()` (ad esempio "Aiuto cuoco").
 - **Il caposala non è un ruolo** ma un incarico assegnato a un cameriere full-time per un singolo turno (`Dipendente.puoEssereCaposala()`, storia US-22). Per questo non compare nell'enum `Ruolo` né nel database dei dipendenti.
-- **Test**: `model` e `service` con test unitari che non hanno bisogno del database; `repository` con test che usano il database acceso (vengono saltati se è spento).
+- **Test**: `model` e `service` ospitano verifiche unitarie. I test di integrazione accedono a MySQL tramite la configurazione applicativa.
 
 ## 4. Database
 - MySQL 8.4 in Docker. Database `turnogiusto`, utente `turnogiusto`, password `turnogiusto`: sono credenziali **solo di sviluppo**, valide soltanto sul proprio PC.

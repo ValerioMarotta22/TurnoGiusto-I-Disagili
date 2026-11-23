@@ -35,6 +35,11 @@ public class DipendenteRepository {
      *                      contratti contemporaneamente validi
      */
     public List<Dipendente> trovaTutti() throws SQLException {
+        return trovaTutti(LocalDate.now());
+    }
+
+    /** Restituisce le stesse anagrafiche, con il contratto valido alla data richiesta. */
+    public List<Dipendente> trovaTutti(LocalDate data) throws SQLException {
         // Le triple virgolette delimitano una stringa Java su più righe (text block).
         // Questa assegnazione prepara il testo SQL: non esegue ancora la query.
         // d e c sono abbreviazioni dei nomi delle tabelle. AS assegna nomi distinti
@@ -43,7 +48,7 @@ public class DipendenteRepository {
         // in quel caso le colonne del contratto nel risultato saranno NULL.
         // I filtri sulle date sono nella ON per limitare i contratti associati
         // senza eliminare dall'elenco i dipendenti che non hanno corrispondenze.
-        // I due ? sono parametri: saranno entrambi sostituiti dalla data odierna.
+        // I due parametri usano la stessa data, con inizio e fine inclusivi.
         // ORDER BY usa l'ID come ultimo criterio per ordinare anche gli omonimi.
         String sql = """
                 SELECT d.id AS dipendente_id,
@@ -63,10 +68,6 @@ public class DipendenteRepository {
                      AND (c.data_fine IS NULL OR c.data_fine >= ?)
                 ORDER BY d.cognome, d.nome, d.id
                 """;
-        // Calcoliamo oggi una sola volta, usando il fuso orario predefinito di Java.
-        // I due parametri avranno così la stessa data anche a cavallo della mezzanotte.
-        LocalDate oggi = LocalDate.now();
-
         // try-with-resources chiude automaticamente statement e connessione,
         // anche se si verifica un errore o si esegue il return dentro il blocco.
         // Database.getConnection() usa le impostazioni di connessione del progetto.
@@ -76,8 +77,8 @@ public class DipendenteRepository {
 
             // Gli indici JDBC partono da 1: il primo ? controlla l'inizio,
             // il secondo la fine. Date.valueOf converte LocalDate in java.sql.Date.
-            statement.setDate(1, Date.valueOf(oggi));
-            statement.setDate(2, Date.valueOf(oggi));
+            statement.setDate(1, Date.valueOf(data));
+            statement.setDate(2, Date.valueOf(data));
 
             // executeQuery invia la SELECT al database e restituisce le righe
             // tramite un ResultSet, che verrà chiuso dal suo try-with-resources.
@@ -103,7 +104,7 @@ public class DipendenteRepository {
                         );
                     }
 
-                    // Valore iniziale per un dipendente senza contratto valido oggi.
+                    // Valore iniziale per un dipendente senza contratto valido alla data richiesta.
                     Contratto contratto = null;
 
                     // getObject mantiene il NULL SQL come null Java. Un getInt da solo

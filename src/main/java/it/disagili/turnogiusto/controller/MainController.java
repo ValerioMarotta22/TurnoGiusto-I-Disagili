@@ -39,6 +39,12 @@ public class MainController {
         caricaSchermata("fabbisogno-view.fxml");
     }
 
+    /** Apre la pianificazione nella stessa area centrale delle altre schermate. */
+    @FXML
+    private void apriGenerazioneTurni() {
+        caricaSchermata("ui/generazione-turni-view.fxml");
+    }
+
     // Segnaposto: finche' la schermata non esiste mostrano un avviso.
     // Chi sviluppa US-01/US-02 sostituisce il corpo con
     //     caricaSchermata("dipendenti-view.fxml");
