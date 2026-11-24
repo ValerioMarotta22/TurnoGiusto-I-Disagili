@@ -10,10 +10,13 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
+import java.time.DayOfWeek;
+import java.time.temporal.TemporalAdjusters;
 
 /**
- * US02: aggiorna con decorrenza da oggi. Un contratto iniziato prima viene chiuso
- * ieri e sostituito; uno iniziato oggi viene corretto sulla stessa riga.
+ * US02: programma il cambio dal primo lunedì del mese successivo al salvataggio.
+ * Conserva la riga precedente, chiudendola alla domenica prima della decorrenza,
+ * e inserisce una nuova riga anche quando il contratto precedente è iniziato oggi.
  * Tutte le letture e scritture usano la stessa transazione.
  */
 public class ContrattoService {
@@ -41,12 +44,37 @@ public class ContrattoService {
     }
 
     /**
+     * Restituisce il primo lunedì del mese successivo al salvataggio.
+     * Non legge il database e non modifica alcun contratto.
+     *
+     * Riceve una data esplicita per poter verificare la regola
+     * con test ripetibili, indipendenti dalla data reale.
+     */
+    public static LocalDate calcolaDecorrenza(LocalDate dataSalvataggio) {
+
+        if (dataSalvataggio == null) {
+            throw new IllegalArgumentException(
+                    "La data di salvataggio è obbligatoria.");
+        }
+
+        // Individuiamo il giorno 1 del mese successivo.
+        LocalDate primoDelMeseSuccessivo =
+                dataSalvataggio.withDayOfMonth(1).plusMonths(1);
+
+        // Se il giorno 1 è già lunedì, lo conserviamo.
+        // Altrimenti avanziamo fino al primo lunedì disponibile.
+        return primoDelMeseSuccessivo.with(
+                TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY));
+    }
+
+    /**
      * Risultato restituito solo dopo il commit. Chi chiama il service può leggere
-     * i dati salvati e decidere come comunicare l'eventuale avviso sui turni.
+     * i dati del contratto futuro e decidere come comunicare l'eventuale avviso sui turni.
      * Il service funziona anche senza schermate e non rigenera la pianificazione.
      */
     // Un record raccoglie i dati dell'esito e genera gli accessori (contratto(), ecc.).
     // Il Contratto contenuto rimane un oggetto del modello, quindi è ancora modificabile.
+    // correzioneOdierna resta per compatibilità con i chiamanti: ora è sempre false.
     public record Esito(Contratto contratto, boolean oreRidotte, Stato statoTurni,
                         boolean correzioneOdierna) {
         /** Criterio 2: l'avviso è dovuto solo quando entrambe le condizioni sono vere. */
@@ -63,10 +91,12 @@ public class ContrattoService {
     /**
      * contrattoAttesoId identifica quello letto dal chiamante: la rilettura evita di
      * aggiornare silenziosamente un contratto già sostituito da un'altra operazione.
-     * nuoviDati deve avere inizio oggi; la fine è facoltativa e non può precedere oggi.
+     * nuoviDati deve avere inizio nella decorrenza programmata; la fine è facoltativa
+     * e non può precedere tale decorrenza.
      * L'oggetto ricevuto non viene modificato: l'esito contiene una nuova copia salvata.
      * Anche l'eventuale Dipendente già in memoria conserva il vecchio riferimento:
-     * dopo il successo il chiamante può usare esito.contratto() oppure rileggere l'elenco.
+     * dopo il successo rileggere l'elenco mantiene visibile il contratto ancora vigente.
+     * esito.contratto() descrive invece il nuovo contratto futuro, non quello attuale.
      *
      * @return dati salvati e decisione sull'avviso; nessun esito viene restituito su errore
      * @throws IllegalArgumentException se dati, decorrenza o selezione non sono validi
@@ -75,9 +105,10 @@ public class ContrattoService {
      */
     public Esito aggiorna(int dipendenteId, int contrattoAttesoId, Contratto nuoviDati)
             throws SQLException {
-        // La decorrenza viene stabilita una volta all'inizio dell'operazione.
-        // Non sono ammesse modifiche retroattive o programmate per giorni futuri.
+        // Leggiamo oggi una volta sola: decorrenza e validazioni usano lo stesso riferimento.
         LocalDate oggi = LocalDate.now(clock);
+        LocalDate decorrenza = calcolaDecorrenza(oggi);
+
         if (dipendenteId <= 0 || contrattoAttesoId <= 0) {
             throw new IllegalArgumentException("Seleziona un dipendente e un contratto registrati");
         }
@@ -92,8 +123,9 @@ public class ContrattoService {
         // i limiti SQL sul costo, gli stessi già usati nella registrazione US01.
         List<String> errori = dati.valida();
         ValidazioneContratto.aggiungiLimitiPersistenza(dati, errori);
-        if (!oggi.equals(dati.getDataInizio())) {
-            errori.add("Il cambio contratto deve decorrere dalla data odierna");
+
+        if (!decorrenza.equals(dati.getDataInizio())) {
+            errori.add("Il cambio contratto deve decorrere dal " + decorrenza);
         }
         // Lo zero è ammesso per un oggetto di proposta non ancora salvato.
         // Un collegamento già valorizzato deve invece corrispondere alla selezione.
@@ -132,11 +164,19 @@ public class ContrattoService {
                 // Arrivati qui sappiamo che esiste esattamente un contratto attuale.
                 Contratto precedente = validi.getFirst();
                 if (precedente.getId() != contrattoAttesoId) {
-                    // Rileva una sostituzione con un altro ID. Una correzione sulla
-                    // stessa riga conserva l'ID: questo non è un controllo di versione
-                    // che rileva qualunque modifica contemporanea dei singoli campi.
+                    // L'ID selezionato deve essere ancora quello del contratto vigente.
+                    // L'ID di un contratto futuro non può sostituirlo in questa operazione.
                     throw new IllegalArgumentException("Il contratto è cambiato: aggiorna l'elenco e riprova");
                 }
+
+                // Non prolunghiamo automaticamente un contratto che scade
+                // prima della decorrenza prevista: quel caso richiede una decisione dedicata.
+                if (precedente.getDataFine() != null
+                        && precedente.getDataFine().isBefore(decorrenza.minusDays(1))) {
+                    throw new IllegalArgumentException(
+                            "Il contratto attuale scade prima della nuova decorrenza.");
+                }
+
                 // Controlliamo anche eventuali contratti futuri, senza filtrare per tipo.
                 for (Contratto altro : contratti) {
                     if (altro.getId() != precedente.getId() && siSovrappongono(dati, altro)) {
@@ -148,26 +188,31 @@ public class ContrattoService {
                 oreRidotte = dati.getOreSettimanali() < precedente.getOreSettimanali();
                 if (oreRidotte) {
                     // Usiamo i dati riletti, non valori delle ore provenienti dalla schermata.
-                    statoTurni = verificaTurni.verifica(connessione, dipendenteId, oggi);
+                    // La riduzione interessa i turni dalla decorrenza del nuovo contratto.
+                    statoTurni = verificaTurni.verifica(connessione, dipendenteId, decorrenza);
                     // Un verificatore deve distinguere presente, assente e non disponibile.
                     // NON_RICHIESTA è riservato al ramo in cui non viene chiamato.
                     if (statoTurni == null || statoTurni == Stato.NON_RICHIESTA) {
                         throw new IllegalStateException("Esito della verifica dei turni non valido");
                     }
                 }
-                correzioneOdierna = precedente.getDataInizio().equals(oggi);
-                if (correzioneOdierna) {
-                    // Con sole date giornaliere non possiamo creare due versioni valide
-                    // nello stesso giorno: per accordo correggiamo la riga esistente.
-                    // Non conserviamo quindi le sue versioni infragiornaliere.
-                    repository.correggiOdierno(connessione, dipendenteId, precedente.getId(), dati);
-                    idSalvato = precedente.getId();
-                } else {
-                    // Esempio: il nuovo parte l'11, il precedente termina il 10.
-                    // Chiuderlo l'11 creerebbe una sovrapposizione per le date inclusive.
-                    repository.chiudi(connessione, dipendenteId, precedente.getId(), oggi.minusDays(1));
-                    idSalvato = repository.inserisci(connessione, dipendenteId, dati);
-                }
+
+                // Non correggiamo più i dati della riga precedente.
+                // Manteniamo temporaneamente questo campo dell'esito per compatibilità.
+                correzioneOdierna = false;
+
+                // Il contratto precedente conserva ID, tipo, ore, costo e data iniziale.
+                // Cambia soltanto la fine: la domenica prima della nuova decorrenza.
+                repository.chiudi(
+                        connessione,
+                        dipendenteId,
+                        precedente.getId(),
+                        decorrenza.minusDays(1));
+
+                // Il nuovo contratto viene salvato come una nuova riga.
+                // Chiusura e inserimento appartengono alla stessa transazione.
+                idSalvato = repository.inserisci(connessione, dipendenteId, dati);
+
                 // Solo qui entrambe le operazioni diventano definitive e visibili
                 // alle altre connessioni, comprese quelle usate dalla pianificazione.
                 connessione.commit();

@@ -63,13 +63,13 @@
                    GridPane.rowIndex="2"
                    GridPane.columnIndex="1"/>
 
-        <!-- La modifica decorre da oggi: questa informazione non è modificabile. -->
+        <!-- Il controller mostra il primo lunedì del mese successivo al salvataggio. -->
         <Label text="Decorrenza modifica"
                GridPane.rowIndex="3"
                GridPane.columnIndex="0"/>
 
         <Label fx:id="decorrenzaLabel"
-               text="Da oggi"
+               text="Da calcolare"
                GridPane.rowIndex="3"
                GridPane.columnIndex="1"/>
 
