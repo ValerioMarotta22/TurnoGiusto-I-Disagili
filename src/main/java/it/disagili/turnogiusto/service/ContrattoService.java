@@ -3,6 +3,7 @@ package it.disagili.turnogiusto.service;
 import it.disagili.turnogiusto.model.Contratto;
 import it.disagili.turnogiusto.repository.ContrattoRepository;
 import it.disagili.turnogiusto.repository.Database;
+import it.disagili.turnogiusto.repository.FornitoreConnessioni;
 import it.disagili.turnogiusto.service.VerificaTurniPianificati.Stato;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -25,6 +26,7 @@ public class ContrattoService {
     // Clock fornisce data e fuso orario: nell'app usa l'orologio reale,
     // nei test può essere fermato per rendere stabile il significato di oggi.
     private final Clock clock;
+    private final FornitoreConnessioni connessioni;
 
     /** La pianificazione non è ancora collegata: non fingiamo che non ci siano turni. */
     public ContrattoService() {
@@ -38,9 +40,16 @@ public class ContrattoService {
 
     // Repository e orologio sostituibili nei test, senza cambiare le regole dei model.
     ContrattoService(ContrattoRepository repository, VerificaTurniPianificati verificaTurni, Clock clock) {
+        this(repository, verificaTurni, clock, Database::getConnection);
+    }
+
+    /** Nei test la connessione può essere simulata, senza aprire MySQL. */
+    ContrattoService(ContrattoRepository repository, VerificaTurniPianificati verificaTurni,
+                     Clock clock, FornitoreConnessioni connessioni) {
         this.repository = Objects.requireNonNull(repository);
         this.verificaTurni = Objects.requireNonNull(verificaTurni);
         this.clock = Objects.requireNonNull(clock);
+        this.connessioni = Objects.requireNonNull(connessioni);
     }
 
     /**
@@ -65,6 +74,53 @@ public class ContrattoService {
         // Altrimenti avanziamo fino al primo lunedì disponibile.
         return primoDelMeseSuccessivo.with(
                 TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY));
+    }
+
+    /**
+     * Calcola l'ultimo giorno valido in caso di cessazione programmata.
+     * Il contratto termina la domenica prima del primo lunedì
+     * del mese successivo alla richiesta.
+     *
+     * Se esiste una scadenza precedente, la conserva:
+     * una cessazione non deve prolungare il contratto.
+     *
+     * Questo metodo calcola soltanto una data, senza modificare
+     * oggetti o salvare dati nel database.
+     */
+    public static LocalDate calcolaFineCessazione(
+            LocalDate dataRichiesta, LocalDate scadenzaAttuale) {
+
+        LocalDate fineProgrammata =
+                calcolaDecorrenza(dataRichiesta).minusDays(1);
+
+        // null significa che il contratto non ha una scadenza.
+        if (scadenzaAttuale != null
+                && scadenzaAttuale.isBefore(fineProgrammata)) {
+            return scadenzaAttuale;
+        }
+
+        return fineProgrammata;
+    }
+
+    /**
+     * Risultato della cessazione, da restituire soltanto dopo il commit.
+     * Conserva l'identità del contratto e il suo ultimo giorno valido.
+     * Lo stato dei turni indica se occorre ricontrollare la pianificazione.
+     */
+    public record EsitoCessazione(
+            int contrattoId,
+            LocalDate ultimoGiornoValido,
+            Stato statoTurni) {
+
+        /** Esistono turni successivi alla fine del contratto da ricontrollare. */
+        public boolean richiedeRicontrolloTurni() {
+            return statoTurni == Stato.PRESENTI;
+        }
+
+        /** La verifica non è disponibile: non possiamo dichiarare il piano valido. */
+        public boolean integrazionePianificazioneDaCompletare() {
+            return statoTurni == Stato.NON_DISPONIBILE;
+        }
     }
 
     /**
@@ -230,6 +286,90 @@ public class ContrattoService {
             dati.setId(idSalvato);
             return new Esito(dati, oreRidotte, statoTurni, correzioneOdierna);
         }
+    }
+
+    /**
+     * Programma la cessazione conservando la riga del contratto nello storico.
+     * Rilegge i dati sotto blocco e rifiuta cambi futuri già programmati.
+     * L'esito è restituito solo dopo il commit; gli errori annullano la modifica.
+     */
+    public EsitoCessazione cessa(int dipendenteId, int contrattoAttesoId) throws SQLException {
+        if (dipendenteId <= 0 || contrattoAttesoId <= 0) {
+            throw new IllegalArgumentException("Seleziona un dipendente e un contratto registrati.");
+        }
+        LocalDate oggi = LocalDate.now(clock);
+        try (Connection connessione = connessioni.apri()) {
+            connessione.setAutoCommit(false);
+            try {
+                List<Contratto> contratti = repository.trovaPerAggiornamento(connessione, dipendenteId);
+                Contratto attuale = selezionaContrattoDaCessare(contratti, contrattoAttesoId, oggi);
+                for (Contratto altro : contratti) {
+                    // Non annulliamo automaticamente un accordo futuro già registrato.
+                    if (altro.getDataInizio().isAfter(oggi)) {
+                        throw new IllegalArgumentException(
+                                "Esiste un contratto futuro: risolvi prima il cambio programmato.");
+                    }
+                }
+                LocalDate fine = calcolaFineCessazione(oggi, attuale.getDataFine());
+                // La cena dell'ultimo giorno rimane ammessa. Il collegamento ai turni
+                // deve cercare assegnazioni che iniziano dal giorno successivo.
+                Stato stato = verificaTurni.verifica(connessione, dipendenteId, fine.plusDays(1));
+                if (stato == null || stato == Stato.NON_RICHIESTA) {
+                    throw new IllegalStateException("Esito della verifica dei turni non valido");
+                }
+                // Se la data è già quella corretta, non serve ripetere l'UPDATE.
+                // Nessun INSERT o DELETE: ID e dati storici restano conservati.
+                if (!fine.equals(attuale.getDataFine())) {
+                    repository.chiudi(connessione, dipendenteId, attuale.getId(), fine);
+                }
+                connessione.commit();
+                return new EsitoCessazione(attuale.getId(), fine, stato);
+            } catch (SQLException | RuntimeException errore) {
+                try {
+                    connessione.rollback();
+                } catch (SQLException erroreRollback) {
+                    errore.addSuppressed(erroreRollback);
+                }
+                throw errore;
+            }
+        }
+    }
+
+    /**
+     * Individua il contratto attivo alla data della richiesta.
+     * La lista deve provenire dalla rilettura nella transazione.
+     * Controlla anche che il contratto sia ancora quello selezionato
+     * dal chiamante, evitando di cessarne un altro per errore.
+     */
+    private Contratto selezionaContrattoDaCessare(
+            List<Contratto> contratti,
+            int contrattoAttesoId,
+            LocalDate oggi) {
+
+        // Gli estremi sono inclusivi: un contratto che scade oggi
+        // è ancora valido oggi.
+        List<Contratto> validi = contratti.stream()
+                .filter(contratto -> contratto.isValidoIl(oggi))
+                .toList();
+
+        if (validi.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Il dipendente non ha un contratto valido oggi.");
+        }
+
+        // Non scegliamo arbitrariamente tra contratti sovrapposti.
+        if (validi.size() > 1) {
+            throw new IllegalArgumentException(
+                    "Esistono più contratti contemporaneamente validi.");
+        }
+
+        Contratto attuale = validi.getFirst();
+        if (attuale.getId() != contrattoAttesoId) {
+            throw new IllegalArgumentException(
+                    "Il contratto è cambiato: aggiorna l'elenco e riprova.");
+        }
+
+        return attuale;
     }
 
     // Due intervalli inclusivi si intersecano se ciascuno inizia prima della fine

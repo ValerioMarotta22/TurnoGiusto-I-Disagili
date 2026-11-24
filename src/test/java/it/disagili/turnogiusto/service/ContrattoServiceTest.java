@@ -37,6 +37,57 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * questi test NON attestano l'integrazione con una pianificazione reale, ancora assente.
  */
 class ContrattoServiceTest {
+    /** Solo calcolo in memoria: queste prove non aprono connessioni al database. */
+    @Test
+    void calcolaFineCessazioneSenzaScadenzaAllaDomenicaPrecedente() {
+        assertEquals(LocalDate.of(2026, 12, 6),
+                ContrattoService.calcolaFineCessazione(LocalDate.of(2026, 11, 24), null));
+    }
+
+    @Test
+    void calcolaFineCessazioneConservaLaScadenzaAnticipata() {
+        // La richiesta non deve estendere un contratto che finisce già a novembre.
+        assertEquals(LocalDate.of(2026, 11, 30),
+                ContrattoService.calcolaFineCessazione(
+                        LocalDate.of(2026, 11, 24), LocalDate.of(2026, 11, 30)));
+    }
+
+    @Test
+    void calcolaFineCessazioneAnticipaLaScadenzaSuccessiva() {
+        assertEquals(LocalDate.of(2026, 12, 6),
+                ContrattoService.calcolaFineCessazione(
+                        LocalDate.of(2026, 11, 24), LocalDate.of(2026, 12, 31)));
+    }
+
+    @Test
+    void calcolaFineCessazioneConservaLaScadenzaCoincidente() {
+        assertEquals(LocalDate.of(2026, 12, 6),
+                ContrattoService.calcolaFineCessazione(
+                        LocalDate.of(2026, 11, 24), LocalDate.of(2026, 12, 6)));
+    }
+
+    @Test
+    void calcolaFineCessazioneQuandoIlMeseIniziaDiLunedi() {
+        // Il primo febbraio è escluso: l'ultimo giorno valido è il 31 gennaio.
+        assertEquals(LocalDate.of(2027, 1, 31),
+                ContrattoService.calcolaFineCessazione(LocalDate.of(2027, 1, 15), null));
+    }
+
+    @Test
+    void calcolaFineCessazioneAttraversaIlCambioDiAnno() {
+        assertEquals(LocalDate.of(2027, 1, 3),
+                ContrattoService.calcolaFineCessazione(LocalDate.of(2026, 12, 31), null));
+    }
+
+    @Test
+    void calcolaFineCessazioneRifiutaLaDataRichiestaMancante() {
+        // Anche con una scadenza già nota, la data della richiesta è obbligatoria.
+        assertThrows(IllegalArgumentException.class,
+                () -> ContrattoService.calcolaFineCessazione(null, null));
+        assertThrows(IllegalArgumentException.class,
+                () -> ContrattoService.calcolaFineCessazione(null, LocalDate.of(2026, 11, 30)));
+    }
+
     @Test
     void calcolaDecorrenzaSulPrimoLunediDelMeseSuccessivo() {
         // Novembre 2026 termina di lunedì: la decorrenza è comunque in dicembre.
