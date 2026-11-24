@@ -54,6 +54,19 @@ import static org.junit.jupiter.api.Assertions.*;
 class GenerazioneTurniControllerTest {
     private static final LocalDate LUNEDI = LocalDate.of(2026, 11, 23);
 
+    // La finestra principale mostra le voci in base a chi ha fatto l'accesso: questi test partono dal menu
+    // del titolare, quindi si simula l'accesso del titolare e poi lo si toglie, per non influenzare altri test.
+    @org.junit.jupiter.api.BeforeEach
+    void accediComeTitolare() {
+        it.disagili.turnogiusto.service.SessioneUtente.accedi(new it.disagili.turnogiusto.model.Utente(
+                1, "titolare", it.disagili.turnogiusto.model.TipoUtente.TITOLARE, null, "Titolare", false));
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void esci() {
+        it.disagili.turnogiusto.service.SessioneUtente.esci();
+    }
+
     /** Parte dal menu reale, usa i controlli in una finestra e legge il MySQL configurato per i test. */
     @Test
     @Tag("database")

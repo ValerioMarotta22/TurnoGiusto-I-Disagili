@@ -48,7 +48,7 @@ La prima volta scarica l'immagine di MySQL (qualche minuto).
 .\mvnw javafx:run
 ```
 
-Si apre la finestra di TurnoGiusto con il menu in alto. Da **Fabbisogno > Fabbisogno di personale** si apre la schermata del fabbisogno: nella tabella devono comparire le righe di prova. Non avviare la classe con il pulsante Play standard di IntelliJ: JavaFX da solo non parte, usare sempre `javafx:run`.
+Si apre la schermata di **accesso** (vedi la sezione *Accesso e permessi*): per provare entra come `titolare` con la password `titolare123`. Poi si apre la finestra di TurnoGiusto con il menu in alto. Da **Fabbisogno > Fabbisogno di personale** si apre la schermata del fabbisogno: nella tabella devono comparire le righe di prova. Non avviare la classe con il pulsante Play standard di IntelliJ: JavaFX da solo non parte, usare sempre `javafx:run`.
 
 6. Eseguire i test:
 
@@ -138,6 +138,30 @@ docker compose exec db mysql -uturnogiusto -pturnogiusto turnogiusto
 - Le modifiche fatte da un programma esterno (DBeaver, Workbench...) **non sono condivise** con gli altri e spariscono al primo reset: la struttura va sempre scritta nei file `.sql`.
 - Nel file dei dati gli ID sono scritti a mano: per aggiungere righe usare numeri nuovi e usare gli stessi numeri nelle tabelle collegate (`contratto`, `disponibilita`), altrimenti MySQL dà un errore di chiave esterna.
 - Lo schema è allineato alle classi del pacchetto `model`: i valori degli ENUM del database sono i nomi delle enum Java (il test `DatabaseTest` controlla che coincidano). Se si aggiunge un valore a un'enum, va aggiunto anche allo schema, e viceversa.
+
+### Accesso e permessi
+All'avvio si fa l'accesso. Ci sono due tipi di utente (`TipoUtente`, da non confondere con il ruolo di lavoro `Ruolo`):
+
+| Tipo | Cosa vede |
+|---|---|
+| **Titolare** | Dipendenti, Disponibilità dei part-time, Fabbisogno, Turni (generazione e modifica del piano) |
+| **Dipendente** | **I miei turni** (sola lettura, solo i suoi) e, se è part-time, **Le mie disponibilità** (solo le sue). Non vede e non può aprire la sezione dei turni, dei dipendenti o del fabbisogno |
+
+**Account di prova** (solo per lo sviluppo, creati da `db/init/02_seed.sql`):
+
+| Chi | Nome utente | Password |
+|---|---|---|
+| Titolare | `titolare` | `titolare123` |
+| Ognuno dei 18 dipendenti | `nome.cognome` (senza accenti, minuscolo: `mario.rossi`, `nicolo.ferri`) | `dipendente123` |
+
+Esempi: `sara.neri` è part-time (vede anche "Le mie disponibilità"), `anna.gialli` è a tempo pieno, `nicolo.ferri` è part-time senza disponibilità inserite.
+
+Come funziona, in breve:
+- Le password **non sono salvate**: nel database c'è solo l'hash (PBKDF2 con sale, `PasswordHasher`). Il messaggio d'errore è lo stesso per "nome inesistente" e "password sbagliata".
+- Chi può fare cosa sta in **un solo posto**, la classe `Autorizzazioni`. Il menu nasconde le voci vietate e la finestra principale **ricontrolla** il permesso prima di aprire ogni schermata (nascondere una voce non basterebbe).
+- Per aggiungere una schermata riservata: nuova voce in `Funzione`, regola in `Autorizzazioni`, e `richiedi(...)` nel gestore del menu in `MainController`.
+- Account in `utente` (uno per dipendente, più il titolare). Il menu **Account > Esci** torna all'accesso.
+- Limiti noti: non c'è il cambio password né il blocco dopo troppi tentativi; le credenziali di prova vanno cancellate in un'installazione vera.
 
 ## 5. Come lavoriamo
 - Prima di iniziare: `Git > Pull`.

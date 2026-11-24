@@ -127,3 +127,23 @@ CREATE TABLE assegnazione_turno (
                                     CONSTRAINT fk_assegnazione_dipendente FOREIGN KEY (dipendente_id) REFERENCES dipendente (id) ON DELETE CASCADE,
                                     CONSTRAINT uq_assegnazione UNIQUE (turno_id, dipendente_id)
 ) ENGINE=InnoDB;
+
+-- ---------------------------------------------------------------------
+-- UTENTE (accesso): chi puo' entrare nell'applicazione e come.
+-- tipo TITOLARE  = gestisce dipendenti, fabbisogno e turni (dipendente_id vuoto);
+-- tipo DIPENDENTE = vede i propri turni e, se part-time, le proprie disponibilita'
+--                   (dipendente_id = la sua anagrafica; ogni dipendente ha al piu' un account).
+-- La password NON e' salvata: password_hash contiene l'impronta (vedi PasswordHasher).
+-- Il vincolo "titolare senza dipendente / dipendente con dipendente" e' controllato dal codice
+-- (classe Utente): MySQL non permette un CHECK su una colonna con ON DELETE CASCADE.
+-- ---------------------------------------------------------------------
+CREATE TABLE utente (
+    id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    username      VARCHAR(50)  NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    tipo          ENUM('TITOLARE', 'DIPENDENTE') NOT NULL,
+    dipendente_id INT UNSIGNED NULL,
+    CONSTRAINT uq_utente_username UNIQUE (username),
+    CONSTRAINT uq_utente_dipendente UNIQUE (dipendente_id),
+    CONSTRAINT fk_utente_dipendente FOREIGN KEY (dipendente_id) REFERENCES dipendente (id) ON DELETE CASCADE
+) ENGINE=InnoDB;

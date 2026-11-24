@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<!-- ACCESSO: la prima schermata dell'applicazione. Dopo l'accesso si apre la finestra principale,
+     con il menu che dipende dal tipo di utente (titolare o dipendente). -->
+<VBox alignment="CENTER" stylesheets="@disponibilita.css" styleClass="pagina"
+      xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="it.disagili.turnogiusto.ui.LoginController">
+    <padding>
+        <Insets top="30" right="40" bottom="30" left="40"/>
+    </padding>
+
+    <VBox spacing="12" maxWidth="340" alignment="CENTER_LEFT">
+        <Label text="TurnoGiusto" styleClass="titolo"/>
+        <Label text="Accedi per continuare" styleClass="nota"/>
+
+        <Label text="Nome utente"/>
+        <TextField fx:id="username" promptText="es. mario.rossi" accessibleText="Nome utente"/>
+
+        <Label text="Password"/>
+        <PasswordField fx:id="password" promptText="la tua password" accessibleText="Password"/>
+
+        <Button fx:id="accedi" text="Accedi" onAction="#onAccedi" styleClass="principale" maxWidth="Infinity"
+                defaultButton="true"/>
+
+        <Label fx:id="messaggio" wrapText="true" styleClass="nota" maxWidth="Infinity"/>
+    </VBox>
+</VBox>

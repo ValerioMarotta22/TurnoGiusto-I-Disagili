@@ -76,8 +76,71 @@ INSERT INTO disponibilita (dipendente_id, giorno_settimana, ora_inizio, ora_fine
     (16, 6, '18:00:00', '01:00:00'),
     (16, 7, '18:00:00', '01:00:00');
 
+-- ---------------------------------------------------------------------
+-- FABBISOGNO STANDARD: quante persone servono per tipo di giorno, servizio e ruolo.
+-- 24 righe = 3 tipi di giorno (feriale, weekend, festivo) x 2 servizi (pranzo, cena) x 4 ruoli.
+-- Le quantita' sono pensate sul personale in elenco (4 cuochi, 4 aiuto cuochi, 8 camerieri, 2 lavapiatti):
+--   - la cena del weekend (2 cuochi, 1 aiuto, 5 camerieri, 2 lavapiatti) e' il "caso concreto" del testo;
+--   - i festivi hanno gli stessi numeri del weekend;
+--   - a pranzo non servono lavapiatti (0): ce ne sono solo 2 e servono entrambi alla cena;
+--   - la stessa persona non puo' fare pranzo e cena di seguito, quindi i numeri tengono conto dei turni
+--     che si escludono a vicenda.
+-- Una riga con 0 significa "nessuno richiesto", non "dato mancante".
+-- ---------------------------------------------------------------------
 INSERT INTO fabbisogno (ruolo, tipo_giorno, servizio, numero_minimo_dipendenti) VALUES
-    ('CUOCO',       'WEEKEND', 'CENA', 2),
-    ('AIUTO_CUOCO', 'WEEKEND', 'CENA', 1),
-    ('CAMERIERE',   'WEEKEND', 'CENA', 5),
-    ('LAVAPIATTI',  'WEEKEND', 'CENA', 2);
+    -- giorni FERIALI (lunedi' - venerdi')
+    ('CUOCO',       'FERIALE', 'PRANZO', 1),
+    ('AIUTO_CUOCO', 'FERIALE', 'PRANZO', 1),
+    ('CAMERIERE',   'FERIALE', 'PRANZO', 2),
+    ('LAVAPIATTI',  'FERIALE', 'PRANZO', 0),
+    ('CUOCO',       'FERIALE', 'CENA',   1),
+    ('AIUTO_CUOCO', 'FERIALE', 'CENA',   1),
+    ('CAMERIERE',   'FERIALE', 'CENA',   3),
+    ('LAVAPIATTI',  'FERIALE', 'CENA',   1),
+    -- WEEKEND (sabato e domenica)
+    ('CUOCO',       'WEEKEND', 'PRANZO', 1),
+    ('AIUTO_CUOCO', 'WEEKEND', 'PRANZO', 1),
+    ('CAMERIERE',   'WEEKEND', 'PRANZO', 2),
+    ('LAVAPIATTI',  'WEEKEND', 'PRANZO', 0),
+    ('CUOCO',       'WEEKEND', 'CENA',   2),
+    ('AIUTO_CUOCO', 'WEEKEND', 'CENA',   1),
+    ('CAMERIERE',   'WEEKEND', 'CENA',   5),
+    ('LAVAPIATTI',  'WEEKEND', 'CENA',   2),
+    -- giorni FESTIVI (come il weekend)
+    ('CUOCO',       'FESTIVO', 'PRANZO', 1),
+    ('AIUTO_CUOCO', 'FESTIVO', 'PRANZO', 1),
+    ('CAMERIERE',   'FESTIVO', 'PRANZO', 2),
+    ('LAVAPIATTI',  'FESTIVO', 'PRANZO', 0),
+    ('CUOCO',       'FESTIVO', 'CENA',   2),
+    ('AIUTO_CUOCO', 'FESTIVO', 'CENA',   1),
+    ('CAMERIERE',   'FESTIVO', 'CENA',   5),
+    ('LAVAPIATTI',  'FESTIVO', 'CENA',   2);
+
+-- ---------------------------------------------------------------------
+-- ACCOUNT DI PROVA (solo per lo sviluppo, come le altre credenziali di questo file).
+-- Le password NON sono scritte qui: sono salvate come hash (vedi PasswordHasher).
+--   titolare              ->  nome utente: titolare            password: titolare123
+--   i 18 dipendenti       ->  nome utente: nome.cognome        password: dipendente123
+--                             (senza accenti, in minuscolo: es. mario.rossi, nicolo.ferri)
+-- In un'installazione vera queste righe vanno CANCELLATE e le password cambiate.
+-- ---------------------------------------------------------------------
+INSERT INTO utente (username, password_hash, tipo, dipendente_id) VALUES
+    ('titolare', 'pbkdf2-sha256$210000$ZJ8oHXqcQyPz3t9Y5/YqNg==$gXpSebIXBSSaOA485bQ5BqoGAZSNb8eA3iBDB+6n3v8=', 'TITOLARE', NULL),
+    ('mario.rossi', 'pbkdf2-sha256$210000$cA205EOKz5CZa0He+xKWOQ==$8/sUzV8uz5CUlkJjrAsqE5LvF7uDJdBMX0fzK0NPtsI=', 'DIPENDENTE', 1),
+    ('giulia.bianchi', 'pbkdf2-sha256$210000$RW53ukgyZG5cnBDnBVaWoQ==$Uf4ugAx68lCQrYLwuFqE1M1ayrdP7eP2KQ+bjzMZYxw=', 'DIPENDENTE', 2),
+    ('luca.verdi', 'pbkdf2-sha256$210000$z21mu2NoTmZu0fufFuyiVQ==$OiVBCGvuhfvY2P8AIe7w3lylexkcIJH3Lo5OqBHZkdI=', 'DIPENDENTE', 3),
+    ('sara.neri', 'pbkdf2-sha256$210000$JXL8eoXqXuzLUpw2XkIW2w==$XYsL+Pjmg96CcbQQKBZTVR9L/bbFZIgGdvHeo7nWQmQ=', 'DIPENDENTE', 4),
+    ('anna.gialli', 'pbkdf2-sha256$210000$BFBzfRkyucAKHSy7+0E/hQ==$v/C/o2/URs2oQLn4EFDnM3WXeZHoHeoL61GiUJDVx4o=', 'DIPENDENTE', 5),
+    ('paolo.blu', 'pbkdf2-sha256$210000$Qz16O7qiu3wnwq2hzPhurA==$kZcPkAsogYlqW1XFQsAmvVL3W7PvEW5r6Fctr79jOI4=', 'DIPENDENTE', 6),
+    ('chiara.serra', 'pbkdf2-sha256$210000$lgzGMkXmwgionCHaBbtzEA==$2LrvPPAJ6aqJfp5hOMBzQUTEt7bRflXMaNmytXfZYHA=', 'DIPENDENTE', 7),
+    ('davide.fabbri', 'pbkdf2-sha256$210000$5RlnB3N/19Yey8cCPvb8Xg==$VMeL+pZ3G/B1j6UXU4FNjpBpbcs2Tt9Ix+pgS78AeA0=', 'DIPENDENTE', 8),
+    ('elena.greco', 'pbkdf2-sha256$210000$LFGJwqh5cRmIsvbBbgKcWQ==$znf5AHhoBAJsbMlYMNPIgPSmCzH6RkvFtLWQgmD42P8=', 'DIPENDENTE', 9),
+    ('omar.khan', 'pbkdf2-sha256$210000$Vw9NfquQGZjq/gj1Ar3IGw==$wiQ4LOgVaWoc6PpSv9NIsmnmZjfvxEthUsFUqohZwEI=', 'DIPENDENTE', 10),
+    ('marta.conti', 'pbkdf2-sha256$210000$cZWjz6LqK/TvnpjAb5ukoA==$vFGR4pgV0+QI/WZ6691uz/7f93XQVHiZfbebjIHFz+o=', 'DIPENDENTE', 11),
+    ('piero.villa', 'pbkdf2-sha256$210000$YuSiqScgfOUQlKqKNipWjQ==$bBcOyAH/SppgE9nMkirXgRT7+ls166MoCXdfhHCLXnQ=', 'DIPENDENTE', 12),
+    ('tiziano.moro', 'pbkdf2-sha256$210000$Q0SPRWDkRqweXpqWOsjSyA==$0r0S/H31oPIcvTw1/UNX1I4bunfB7G8pjwMKUqcQ4Bg=', 'DIPENDENTE', 13),
+    ('francesca.riva', 'pbkdf2-sha256$210000$dhkkDrlGQgdERBMdd/8g/A==$ES7FrZ5HzDDlNrKhh7u0zvU+Px73x19l2QgQfvtJY4g=', 'DIPENDENTE', 14),
+    ('matteo.costa', 'pbkdf2-sha256$210000$x9o5s+fVsJd8XFB7TWHASA==$JpRk4GXhhjhLtS2TUR1jBltxfh/idpCdqvEi5nnI4Q4=', 'DIPENDENTE', 15),
+    ('beatrice.longo', 'pbkdf2-sha256$210000$jkd/qrypXk5RKHfnAMrFPw==$y0ZqVQa1kAcWh4ZO+rJB1L32CV3XdazN+e68B5IDnmk=', 'DIPENDENTE', 16),
+    ('nicolo.ferri', 'pbkdf2-sha256$210000$QLmCTgosoQr7l/oUPZB90g==$h1m/0CIvD+fiEMBuqKMprjucmxryVGqBDeWB0VU2w/Y=', 'DIPENDENTE', 17),
+    ('karim.haddad', 'pbkdf2-sha256$210000$vzVGqgUz+JQaCAnGAsLyrQ==$zB+rYrlf7kIq+t2NXv7329QovtdP2VKmuv3RuTmt5CU=', 'DIPENDENTE', 18);

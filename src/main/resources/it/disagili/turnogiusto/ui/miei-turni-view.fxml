@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<!-- PAGINA DEL DIPENDENTE: i suoi turni della settimana, letti dal piano salvato dal titolare.
+     Sola lettura: il dipendente non puo' modificare niente, e vede solo i propri turni. -->
+<VBox spacing="12" stylesheets="@disponibilita.css" styleClass="pagina"
+      xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="it.disagili.turnogiusto.ui.MieiTurniController">
+    <padding>
+        <Insets top="20" right="20" bottom="20" left="20"/>
+    </padding>
+
+    <Label text="I miei turni" styleClass="titolo"/>
+
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Label text="Un giorno della settimana"/>
+        <DatePicker fx:id="settimana" editable="false" prefWidth="145" accessibleText="Un giorno della settimana"/>
+        <Button fx:id="mostra" text="Mostra" onAction="#onMostra" styleClass="principale"/>
+        <Label fx:id="intervallo" styleClass="nota"/>
+    </HBox>
+
+    <TableView fx:id="tabella" VBox.vgrow="ALWAYS" minHeight="160">
+        <columnResizePolicy>
+            <TableView fx:constant="CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN"/>
+        </columnResizePolicy>
+        <placeholder>
+            <Label text="Nessun turno da mostrare."/>
+        </placeholder>
+        <columns>
+            <TableColumn fx:id="giornoColonna" text="Giorno" prefWidth="130" sortable="false"/>
+            <TableColumn fx:id="servizioColonna" text="Servizio" prefWidth="110" sortable="false"/>
+            <TableColumn fx:id="orarioColonna" text="Orario" prefWidth="150" sortable="false"/>
+            <TableColumn fx:id="ruoloColonna" text="Ruolo" prefWidth="150" sortable="false"/>
+        </columns>
+    </TableView>
+
+    <Label fx:id="totale" styleClass="sottotitolo"/>
+    <Label fx:id="messaggio" styleClass="stato" wrapText="true"/>
+</VBox>
