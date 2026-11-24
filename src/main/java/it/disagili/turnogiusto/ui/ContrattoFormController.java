@@ -73,7 +73,7 @@ public class ContrattoFormController {
     private TextField costoOrarioField;
 
     // Una Label mostra la decorrenza senza consentire di modificarla:
-    // il service accetta il cambio soltanto con decorrenza dalla data odierna.
+    // il service accetta il cambio dal primo lunedì del mese successivo al salvataggio.
     @FXML
     private Label decorrenzaLabel;
 
@@ -138,7 +138,8 @@ public class ContrattoFormController {
 
         dipendenteId = dipendente.getId();
         contrattoAttesoId = contratto.getId();
-        dataDecorrenza = oggi;
+        // Mostriamo quando entreranno in vigore le modifiche.
+        dataDecorrenza = ContrattoService.calcolaDecorrenza(oggi);
 
         // Copiamo i valori nei controlli, senza modificare gli oggetti originali.
         dipendenteLabel.setText(dipendente.getNomeCompleto());
@@ -206,9 +207,9 @@ public class ContrattoFormController {
             if (dipendenteId <= 0 || contrattoAttesoId <= 0) {
                 throw new IllegalArgumentException("Seleziona un dipendente con un contratto valido");
             }
-            // Il modulo potrebbe essere rimasto aperto oltre mezzanotte:
-            // la decorrenza effettiva è oggi al momento dell'invio, anche nella Label.
-            dataDecorrenza = LocalDate.now();
+            // Il modulo potrebbe essere rimasto aperto durante un cambio di mese.
+            // Ricalcoliamo la decorrenza all'invio usando la stessa regola del service.
+            dataDecorrenza = ContrattoService.calcolaDecorrenza(LocalDate.now());
             decorrenzaLabel.setText(dataDecorrenza.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
             // Costruiamo un oggetto distinto: il contratto dell'elenco rimane intatto.
             // L'ID zero indica una proposta; l'ID atteso viene passato separatamente.
@@ -239,18 +240,26 @@ public class ContrattoFormController {
             salvataggioCompletato = true;
             aggiornaControlli();
             ContrattoService.Esito esito = salvataggio.getValue();
+            // Il commit è riuscito, ma il nuovo contratto entrerà in vigore in futuro.
+            // Mostriamo la data restituita dal service, cioè quella effettivamente salvata.
+            String conferma = "Cambio contratto programmato dal "
+                    + esito.contratto().getDataInizio().format(
+                            DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                    + ". ";
             if (esito.richiedeRicontrolloTurni()) {
-                mostraMessaggio("Contratto aggiornato. Il monte ore è diminuito: "
-                        + "ricontrolla i turni già pianificati.");
+                mostraMessaggio(conferma
+                        + "Il monte ore diminuisce: ricontrolla i turni "
+                        + "pianificati dalla nuova decorrenza.");
             } else if (esito.integrazionePianificazioneDaCompletare()) {
                 // Non confondiamo la verifica non disponibile con l'assenza di turni.
-                mostraMessaggio("Contratto aggiornato. Non è stato possibile verificare "
+                mostraMessaggio(conferma + "Non è stato possibile verificare "
                         + "se ci sono turni da ricontrollare.");
             } else {
-                mostraMessaggio("Contratto aggiornato correttamente.");
+                mostraMessaggio(conferma);
             }
             // Solo dopo il ritorno normale del service il commit è confermato.
             // Lasciamo aperto il modulo per leggere il messaggio e aggiorniamo l'elenco.
+            // La rilettura deve mostrare ancora il contratto vigente, non quello futuro.
             if (azioneSalvato != null) {
                 azioneSalvato.run();
             }

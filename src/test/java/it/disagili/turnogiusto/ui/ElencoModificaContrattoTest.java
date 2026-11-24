@@ -27,6 +27,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -45,6 +46,13 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 @ExtendWith(JavaFxTestSupport.class)
 class ElencoModificaContrattoTest {
+
+    /** Il messaggio conferma il salvataggio futuro, non l'attivazione immediata. */
+    private String confermaProgrammazione() {
+        return "Cambio contratto programmato dal "
+                + ContrattoService.calcolaDecorrenza(LocalDate.now())
+                .format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + ". ";
+    }
 
     private Dipendente dipendenteDiProva() {
         return dipendenteDiProva(7, 12);
@@ -249,7 +257,15 @@ class ElencoModificaContrattoTest {
                 }
                 Contratto nuovo = new Contratto(13, id, dati.getTipoContratto(), dati.getOreSettimanali(),
                         dati.getCostoOrario(), dati.getDataInizio(), dati.getDataFine());
-                datiSalvati.set(List.of(new Dipendente(id, "Anna", "Rossi", Ruolo.CAMERIERE, nuovo)));
+                // Simuliamo la rilettura del contratto vigente dopo il commit:
+                // conserva i vecchi valori, con fine alla vigilia della decorrenza.
+                Contratto vigente = new Contratto(12, id, TipoContratto.FULL_TIME, 40,
+                        new BigDecimal("12.50"), originale.getContratto().getDataInizio(),
+                        dati.getDataInizio().minusDays(1));
+                assertEquals(ContrattoService.calcolaDecorrenza(LocalDate.now()), nuovo.getDataInizio());
+                assertEquals(16, nuovo.getOreSettimanali());
+                assertFalse(nuovo.isValidoIl(LocalDate.now()));
+                datiSalvati.set(List.of(new Dipendente(id, "Anna", "Rossi", Ruolo.CAMERIERE, vigente)));
                 return new Esito(nuovo, true, Stato.ASSENTI, false);
             }
         };
@@ -280,19 +296,23 @@ class ElencoModificaContrattoTest {
                 assertEquals(2, letture.get());
                 assertEquals(1, tabella(loader).getItems().size());
                 Dipendente letto = tabella(loader).getItems().getFirst();
-                assertEquals(13, letto.getContratto().getId());
-                assertEquals(16, letto.getContratto().getOreSettimanali());
+                assertEquals(12, letto.getContratto().getId());
+                assertEquals(40, letto.getContratto().getOreSettimanali());
+                assertEquals(ContrattoService.calcolaDecorrenza(LocalDate.now()).minusDays(1),
+                        letto.getContratto().getDataFine());
+                assertNull(originale.getContratto().getDataFine(),
+                        "La rilettura non deve alterare l'oggetto originariamente passato al modulo");
                 // Verifichiamo anche i testi delle colonne, non soltanto il modello della riga.
-                assertEquals("16", valoreColonna(loader, "oreColumn", letto));
-                assertEquals("15,75", valoreColonna(loader, "costoColumn", letto));
+                assertEquals("40", valoreColonna(loader, "oreColumn", letto));
+                assertEquals("12,50", valoreColonna(loader, "costoColumn", letto));
                 assertTrue(modulo.get().isShowing(), "La conferma deve rimanere leggibile");
-                assertEquals("Contratto aggiornato correttamente.",
+                assertEquals(confermaProgrammazione(),
                         ((Label) modulo.get().getScene().lookup("#messaggioLabel")).getText());
                 pulsante(modulo.get(), "annullaButton").fire();
                 assertFalse(modulo.get().isShowing());
 
                 Stage riaperto = apriModulo(loader);
-                assertEquals("16", campo(riaperto, "oreSettimanaliField").getText());
+                assertEquals("40", campo(riaperto, "oreSettimanaliField").getText());
                 riaperto.fireEvent(new WindowEvent(riaperto, WindowEvent.WINDOW_CLOSE_REQUEST));
                 assertFalse(riaperto.isShowing(), "La X torna utilizzabile fuori dal salvataggio");
                 return null;
@@ -392,7 +412,7 @@ class ElencoModificaContrattoTest {
                 assertSame(originale, tabella(loader).getItems().getFirst());
                 assertTrue(((Label) loader.getNamespace().get("messaggioLabel")).getText()
                         .contains("Impossibile aggiornare l'elenco"));
-                assertEquals("Contratto aggiornato correttamente.",
+                assertEquals(confermaProgrammazione(),
                         ((Label) modulo.get().getScene().lookup("#messaggioLabel")).getText());
                 assertTrue(pulsante(modulo.get(), "salvaButton").isDisabled());
                 pulsante(modulo.get(), "annullaButton").fire();
