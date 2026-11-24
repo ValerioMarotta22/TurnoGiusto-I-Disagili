@@ -39,6 +39,7 @@
             </Menu>
             <Menu text="Turni">
                 <MenuItem text="Genera piano settimanale" onAction="#apriGenerazioneTurni"/>
+                <MenuItem text="Modifica piano settimanale" onAction="#apriModificaPiano"/>
             </Menu>
         </MenuBar>
     </top>
