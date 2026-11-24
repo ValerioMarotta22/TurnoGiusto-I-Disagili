@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<!-- US-06B: modifica del piano settimanale.
+     Dall'alto in basso: scelta della settimana, tabella dei turni, pannello per cambiare una persona,
+     controlli sulle regole (US07) e pulsanti per salvare. Usa gli stessi stili delle altre schermate.
+     Il testo e i nomi dei fx:id corrispondono ai campi di ModificaPianoController. -->
+<VBox spacing="12" stylesheets="@disponibilita.css" styleClass="pagina"
+      xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="it.disagili.turnogiusto.ui.ModificaPianoController">
+    <padding>
+        <Insets top="20" right="20" bottom="20" left="20"/>
+    </padding>
+
+    <Label text="Modifica piano settimanale" styleClass="titolo"/>
+
+    <!-- SCELTA DELLA SETTIMANA: basta un giorno qualsiasi, il programma trova il lunedì. -->
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Label text="Un giorno della settimana"/>
+        <DatePicker fx:id="settimana" editable="false" prefWidth="145" accessibleText="Un giorno della settimana"/>
+        <Button fx:id="carica" text="Carica piano" onAction="#onCarica" styleClass="principale"/>
+        <!-- Compare solo se la settimana non ha ancora un piano salvato. -->
+        <Button fx:id="genera" text="Genera piano di base" onAction="#onGenera" visible="false" managed="false"/>
+        <Label fx:id="intervallo" styleClass="nota"/>
+    </HBox>
+
+    <!-- TABELLA: una riga per servizio e ruolo, con i posti richiesti, quelli scoperti e chi è assegnato. -->
+    <TableView fx:id="tabella" VBox.vgrow="ALWAYS" minHeight="180">
+        <columnResizePolicy>
+            <TableView fx:constant="CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN"/>
+        </columnResizePolicy>
+        <placeholder>
+            <Label text="Scegli un giorno e carica il piano della settimana."/>
+        </placeholder>
+        <columns>
+            <TableColumn fx:id="giornoColonna" text="Giorno" prefWidth="105" sortable="false"/>
+            <TableColumn fx:id="servizioColonna" text="Servizio" prefWidth="85" sortable="false"/>
+            <TableColumn fx:id="orarioColonna" text="Orario" prefWidth="115" sortable="false"/>
+            <TableColumn fx:id="ruoloColonna" text="Ruolo" prefWidth="105" sortable="false"/>
+            <TableColumn fx:id="richiestiColonna" text="Richiesti" prefWidth="75" sortable="false"/>
+            <TableColumn fx:id="scopertiColonna" text="Scoperti" prefWidth="75" sortable="false"/>
+            <TableColumn fx:id="assegnatiColonna" text="Assegnati" prefWidth="260" minWidth="120" sortable="false"/>
+        </columns>
+    </TableView>
+
+    <!-- PANNELLO DI MODIFICA: disattivato finché non si sceglie una riga della tabella. -->
+    <VBox fx:id="pannelloModifica" spacing="8" disable="true">
+        <Label text="Modifica la riga selezionata" styleClass="sottotitolo"/>
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Label text="Sostituisci"/>
+            <ComboBox fx:id="daSostituire" prefWidth="190" promptText="chi esce" accessibleText="Persona da sostituire"/>
+            <Label text="con"/>
+            <ComboBox fx:id="nuovaPersona" prefWidth="190" promptText="chi entra" accessibleText="Nuova persona"/>
+            <Button fx:id="sostituisci" text="Sostituisci" onAction="#onSostituisci" styleClass="principale" disable="true"/>
+            <Button fx:id="copriPosto" text="Copri un posto scoperto" onAction="#onCopriPosto" disable="true"/>
+        </HBox>
+        <Label text="Nel menu «con» compaiono solo le persone idonee: stesso ruolo, contratto valido e nessun altro turno nello stesso orario."
+               styleClass="nota" wrapText="true"/>
+    </VBox>
+
+    <!-- CONTROLLI DI US07: 11 ore di riposo, monte ore, riposo settimanale. Non bloccano il salvataggio. -->
+    <Label text="Controlli sulle regole" styleClass="sottotitolo"/>
+    <ListView fx:id="violazioni" prefHeight="110" minHeight="80">
+        <placeholder>
+            <Label text="Nessuna violazione da mostrare."/>
+        </placeholder>
+    </ListView>
+    <Label fx:id="statoControlli" styleClass="nota" wrapText="true"/>
+
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Button fx:id="salva" text="Salva piano" onAction="#onSalva" styleClass="principale" disable="true"/>
+        <Button fx:id="annulla" text="Annulla modifiche" onAction="#onAnnulla" disable="true"/>
+    </HBox>
+
+    <Label fx:id="messaggio" text="Scegli un giorno e carica il piano della settimana." styleClass="stato" wrapText="true"/>
+</VBox>

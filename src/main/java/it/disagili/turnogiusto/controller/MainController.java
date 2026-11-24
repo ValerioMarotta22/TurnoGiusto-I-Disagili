@@ -45,6 +45,12 @@ public class MainController {
         caricaSchermata("ui/generazione-turni-view.fxml");
     }
 
+    /** US-06B: modifica del piano settimanale gia' salvato. */
+    @FXML
+    private void apriModificaPiano() {
+        caricaSchermata("ui/modifica-piano-view.fxml");
+    }
+
     // Segnaposto: finche' la schermata non esiste mostrano un avviso.
     // Chi sviluppa US-01/US-02 sostituisce il corpo con
     //     caricaSchermata("dipendenti-view.fxml");
