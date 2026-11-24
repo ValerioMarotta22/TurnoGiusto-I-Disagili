@@ -1040,7 +1040,7 @@ class VerificaVincoliServiceTest {
     }
 
     @Test
-    void richiedeCoperturaContrattualeDellInteraSettimanaConEstremiInclusivi() {
+    void mantieneIlControlloSulleAssunzioniEAmmetteLaScadenzaInSettimana() {
         var lunedi = LocalDate.of(2026, 11, 23);
         var verificatore = new VerificaVincoliService();
         var contratto = contrattoSettimanaleDiProva(20);
@@ -1051,8 +1051,8 @@ class VerificaVincoliServiceTest {
                 verificatore.verificaMonteOreSettimanale(5, lunedi, List.of(), contratto));
         contratto.setDataInizio(lunedi);
         contratto.setDataFine(lunedi.plusDays(5));
-        assertThrows(IllegalArgumentException.class, () ->
-                verificatore.verificaMonteOreSettimanale(5, lunedi, List.of(), contratto));
+        // Nessun turno oltre la scadenza: la domenica scoperta non è più un errore.
+        assertTrue(verificatore.verificaMonteOreSettimanale(5, lunedi, List.of(), contratto).isEmpty());
     }
 
     @Test
@@ -1166,7 +1166,7 @@ class VerificaVincoliServiceTest {
     }
 
     @Test
-    void laVerificaCompletaNonNascondeContrattiMancantiSovrappostiOIncompleti() {
+    void laVerificaCompletaNonNascondeContrattiMancantiOSovrapposti() {
         var lunedi = LocalDate.of(2026, 11, 23);
         var proposta = List.of(pranzoDiLunedi(5, 11, 30));
         var verificatore = new VerificaVincoliService();
@@ -1177,9 +1177,51 @@ class VerificaVincoliServiceTest {
                         List.of(contrattoSettimanaleDiProva(20), contrattoSettimanaleDiProva(40))));
         var incompleto = contrattoSettimanaleDiProva(20);
         incompleto.setDataFine(lunedi.plusDays(2));
-        // Assunzioni/cessazioni non sono ancora definite: nessun giorno scoperto viene ignorato.
+        // Il turno di lunedì precede la scadenza di mercoledì ed è coperto.
+        assertTrue(verificatore.verificaSettimana(
+                lunedi, proposta, List.of(), List.of(incompleto)).isEmpty());
+    }
+
+    /** La scadenza non riproporziona le ore: 20 ore restano il massimo settimanale. */
+    @Test
+    void scadenzaMercolediMantieneIlLimiteInteroAncheAlMinuto() {
+        var lunedi = LocalDate.of(2026, 11, 23);
+        var contratto = contrattoSettimanaleDiProva(20);
+        contratto.setDataFine(lunedi.plusDays(2));
+        var verificatore = new VerificaVincoliService();
+        // Questi turni sintetici occupano solo lunedì, martedì e mercoledì.
+        assertTrue(verificatore.verificaSettimana(lunedi,
+                turniDiProvaPerMinuti(1200), List.of(), List.of(contratto)).isEmpty());
+        var esito = verificatore.verificaSettimana(lunedi,
+                turniDiProvaPerMinuti(1201), List.of(), List.of(contratto));
+        assertEquals(1, esito.size());
+        assertEquals(TipoViolazione.MONTE_ORE_SUPERATO, esito.getFirst().tipo());
+        assertEquals(5, esito.getFirst().dipendenteId());
+        assertEquals(lunedi.plusDays(2), contratto.getDataFine());
+    }
+
+    /** La cena appartiene al giorno iniziale, anche se finisce dopo la scadenza. */
+    @Test
+    void ammetteLaCenaDelGiornoDiScadenzaFinoAlleZeroETrenta() {
+        var lunedi = LocalDate.of(2026, 11, 23);
+        var scadenza = lunedi.plusDays(2);
+        var contratto = contrattoSettimanaleDiProva(20);
+        contratto.setDataFine(scadenza);
+        var cena = new AssegnazioneDaVerificare(5, scadenza, Servizio.CENA,
+                scadenza.atTime(18, 0), scadenza.plusDays(1).atTime(0, 30));
+        assertTrue(new VerificaVincoliService().verificaSettimana(
+                lunedi, List.of(cena), List.of(), List.of(contratto)).isEmpty());
+    }
+
+    /** Poche ore non rendono ammissibile un turno iniziato dopo la scadenza. */
+    @Test
+    void rifiutaUnTurnoDelGiornoSuccessivoAllaScadenza() {
+        var lunedi = LocalDate.of(2026, 11, 23);
+        var contratto = contrattoSettimanaleDiProva(20);
+        contratto.setDataFine(lunedi.plusDays(2));
         assertThrows(IllegalArgumentException.class, () ->
-                verificatore.verificaSettimana(lunedi, proposta, List.of(), List.of(incompleto)));
+                new VerificaVincoliService().verificaSettimana(lunedi,
+                        pranziStandardDa(5, lunedi.plusDays(3), 1), List.of(), List.of(contratto)));
     }
 
     @Test

@@ -27,7 +27,8 @@ public class VerificaVincoliService {
      * La proposta contiene il piano risultante della settimana, anche incompleto:
      * il candidato è già incluso e una modifica sostituisce il turno precedente.
      * I confinanti sono le assegnazioni di contesto fornite dal chiamante.
-     * Lo storico deve coprire ogni giorno della settimana per le persone proposte.
+     * Per le persone proposte serve un contratto valido al lunedì e all'inizio
+     * di ciascun turno. La scadenza durante la settimana è ammessa.
      *
      * Restituisce solo problemi pertinenti alla proposta. I giorni senza contratto
      * e le sovrapposizioni contrattuali restano errori espliciti, non un esito valido.
@@ -477,11 +478,13 @@ public class VerificaVincoliService {
     }
 
     /**
-     * Seleziona un unico contratto che copra l'intera settimana del piano.
+     * Seleziona un unico contratto applicabile alla settimana, valido al lunedì.
      * I cambi programmati da US02 dovranno iniziare il primo lunedì del mese
      * successivo: ogni settimana usa quindi il limite intero di un contratto.
      * Contratti passati/futuri esterni alla settimana e altre persone sono ignorati.
-     * I casi di assunzione/cessazione con settimana scoperta restano da definire.
+     * La scadenza può precedere la domenica: la copertura dei singoli turni
+     * viene controllata dal chiamante, senza proporzionare il monte ore.
+     * Le assunzioni a metà settimana restano escluse da questo passaggio.
      */
     private Contratto trovaContrattoDellaSettimana(
             int dipendenteId, LocalDate lunedi, List<Contratto> contratti) {
@@ -509,11 +512,11 @@ public class VerificaVincoliService {
                 selezionato = contratto;
             }
         }
-
-        if (selezionato == null || !selezionato.isValidoIl(lunedi)
-                || !selezionato.isValidoIl(domenica)) {
+        // Una scadenza durante la settimana è ammessa.
+        // La gestione delle assunzioni a metà settimana resta invariata.
+        if (selezionato == null || !selezionato.isValidoIl(lunedi)) {
             throw new IllegalArgumentException(
-                    "Serve un contratto valido per tutta la settimana del dipendente " + dipendenteId);
+                    "Serve un contratto valido al lunedì della settimana del dipendente " + dipendenteId);
         }
         List<String> errori = selezionato.valida();
         if (!errori.isEmpty()) {
@@ -523,7 +526,8 @@ public class VerificaVincoliService {
     }
     /**
      * Verifica le ore assegnate usando lo storico contrattuale ricevuto.
-     * Usa il limite intero dell'unico contratto valido per tutta la settimana.
+     * Usa il limite intero dell'unico contratto selezionato anche se scade
+     * durante la settimana; nessun turno può iniziare dopo la scadenza.
      * La decorrenza dei cambi futuri viene stabilita da US02, non da questo controllo.
      */
     public List<ViolazioneTurno> verificaMonteOreConStorico(
@@ -538,6 +542,24 @@ public class VerificaVincoliService {
 
         // Il limite è settimanale e non viene ripartito tra più contratti.
         Contratto contratto = trovaContrattoDellaSettimana(dipendenteId, lunedi, contratti);
+        // Controlliamo la copertura prima delle ore: anche un solo turno breve
+        // dopo la scadenza deve essere rifiutato. I confinanti di altre settimane
+        // e i turni di altre persone non appartengono a questo controllo.
+        for (AssegnazioneDaVerificare turno : assegnazioni) {
+            boolean nellaSettimana = !turno.giornoPiano().isBefore(lunedi)
+                    && turno.giornoPiano().isBefore(lunedi.plusDays(7));
+
+            // Conta la data iniziale: la cena dell'ultimo giorno è ammessa
+            // per intero anche quando termina alle 00:30 del giorno successivo.
+            if (turno.dipendenteId() == dipendenteId
+                    && nellaSettimana
+                    && !contratto.isValidoIl(turno.inizio().toLocalDate())) {
+                throw new IllegalArgumentException(
+                        "Il turno del dipendente " + dipendenteId
+                                + " con inizio " + turno.inizio()
+                                + " non è coperto dal contratto.");
+            }
+        }
         long limiteMinuti = contratto.getOreSettimanali() * 60L;
 
         // Il limite esatto è consentito; segnaliamo soltanto il superamento.
