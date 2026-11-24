@@ -39,7 +39,7 @@ class DatabaseTest {
     }
 
     @Test
-    void leQuattroTabelleDelloSchemaSonoPresenti() throws SQLException {
+    void leTabelleDelloSchemaSonoPresenti() throws SQLException {
         Set<String> tabelle = new TreeSet<>();
         try (Statement st = connection.createStatement();
              ResultSet rs = st.executeQuery("SHOW TABLES")) {
@@ -47,7 +47,7 @@ class DatabaseTest {
                 tabelle.add(rs.getString(1));
             }
         }
-        assertEquals(Set.of("contratto", "dipendente", "disponibilita", "fabbisogno"), tabelle,
+        assertEquals(Set.of("assegnazione_turno", "contratto", "dipendente", "disponibilita", "fabbisogno", "piano", "turno"), tabelle,
                 "Lo schema del database deve corrispondere a db/init/01_schema.sql");
     }
 

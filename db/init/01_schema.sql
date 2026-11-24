@@ -96,3 +96,34 @@ CREATE TABLE fabbisogno (
                             CONSTRAINT uq_fabbisogno
                                 UNIQUE (ruolo, tipo_giorno, servizio)
 ) ENGINE=InnoDB;
+
+-- PIANO: una settimana da lunedì a domenica
+CREATE TABLE piano (
+                       id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                       inizio_settimana DATE NOT NULL,
+                       CONSTRAINT uq_piano_settimana UNIQUE (inizio_settimana)
+) ENGINE=InnoDB;
+
+-- TURNO: una riga per servizio, ruolo e intervallo (come il record Turno)
+CREATE TABLE turno (
+                       id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                       piano_id        INT UNSIGNED NOT NULL,
+                       servizio        ENUM('PRANZO', 'CENA') NOT NULL,
+                       ruolo           ENUM('CUOCO', 'AIUTO_CUOCO', 'CAMERIERE', 'LAVAPIATTI') NOT NULL,
+                       inizio          DATETIME NOT NULL,
+                       fine            DATETIME NOT NULL,
+                       posti_richiesti TINYINT UNSIGNED NOT NULL,
+                       CONSTRAINT fk_turno_piano FOREIGN KEY (piano_id) REFERENCES piano (id) ON DELETE CASCADE,
+                       CONSTRAINT ck_turno_orari CHECK (fine > inizio),
+                       CONSTRAINT uq_turno UNIQUE (piano_id, servizio, ruolo, inizio)
+) ENGINE=InnoDB;
+
+-- ASSEGNAZIONE: chi occupa un posto di quella riga. L'orario è quello del turno.
+CREATE TABLE assegnazione_turno (
+                                    id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                                    turno_id      INT UNSIGNED NOT NULL,
+                                    dipendente_id INT UNSIGNED NOT NULL,
+                                    CONSTRAINT fk_assegnazione_turno FOREIGN KEY (turno_id) REFERENCES turno (id) ON DELETE CASCADE,
+                                    CONSTRAINT fk_assegnazione_dipendente FOREIGN KEY (dipendente_id) REFERENCES dipendente (id) ON DELETE CASCADE,
+                                    CONSTRAINT uq_assegnazione UNIQUE (turno_id, dipendente_id)
+) ENGINE=InnoDB;
