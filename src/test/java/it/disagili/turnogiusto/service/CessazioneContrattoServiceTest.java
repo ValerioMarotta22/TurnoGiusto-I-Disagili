@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class CessazioneContrattoServiceTest {
     private final LocalDate oggi = LocalDate.of(2026, 11, 24);
-    private final LocalDate fine = LocalDate.of(2026, 12, 6);
+    private final LocalDate fine = LocalDate.of(2026, 11, 30);
     private final Contratto attuale = new Contratto(12, 5, TipoContratto.FULL_TIME,
             40, BigDecimal.TEN, oggi.minusMonths(1), null);
 

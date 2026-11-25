@@ -16,6 +16,10 @@ import javafx.stage.Modality;
 import java.io.IOException;
 import java.net.URL;
 import javafx.scene.control.Button;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
@@ -37,6 +41,7 @@ public class ElencoDipendentiController {
     private Stage moduloAperto;
     // Impedisce che più clic avviino letture simultanee dello stesso elenco.
     private boolean caricamentoInCorso;
+    private boolean confermaCessazioneAperta;
 
     /** Costruttore usato normalmente da FXMLLoader. */
     public ElencoDipendentiController() {
@@ -93,6 +98,9 @@ public class ElencoDipendentiController {
 
     @FXML
     private Button modificaContrattoButton;
+
+    @FXML
+    private Button cessaContrattoButton;
 
     @FXML
     private Label messaggioLabel;
@@ -177,6 +185,7 @@ public class ElencoDipendentiController {
                 || !selezionato.getContratto().isInVigore();
 
         modificaContrattoButton.setDisable(disabilita);
+        cessaContrattoButton.setDisable(disabilita || confermaCessazioneAperta);
     }
 
 
@@ -185,6 +194,11 @@ public class ElencoDipendentiController {
     /** Usato all'apertura della schermata e dal pulsante Aggiorna elenco. */
     @FXML
     private void caricaDipendenti() {
+        caricaDipendenti(null);
+    }
+
+    // Dopo una cessazione manteniamo visibile il risultato anche dopo la rilettura.
+    private void caricaDipendenti(String esitoSalvataggio) {
         if (caricamentoInCorso) {
             return;
         }
@@ -210,13 +224,15 @@ public class ElencoDipendentiController {
             dipendentiTable.sort();
             messaggioLabel.setVisible(false);
             messaggioLabel.setManaged(false);
+            if (esitoSalvataggio != null) mostraMessaggio(esitoSalvataggio);
             impostaCaricamento(false);
         });
 
         caricamento.setOnFailed(event -> {
             // Non svuotiamo la tabella: una lettura fallita non significa elenco vuoto.
             // L'errore potrebbe dipendere dalla connessione o da contratti sovrapposti.
-            mostraMessaggio("Impossibile aggiornare l'elenco. "
+            mostraMessaggio((esitoSalvataggio == null ? "" : esitoSalvataggio + " ")
+                    + "Impossibile aggiornare l'elenco. "
                     + "Verifica la connessione al database e i dati contrattuali. "
                     + "L'eventuale elenco precedente è stato conservato.");
             impostaCaricamento(false);
@@ -341,7 +357,77 @@ public class ElencoDipendentiController {
         }
     }
 
-    /** Blocca temporaneamente le azioni mentre è in corso una lettura. */
+    /** Conferma esplicita: cessare conserva il contratto, non elimina il dipendente. */
+    @FXML
+    private void onCessaContratto() {
+        if (caricamentoInCorso || confermaCessazioneAperta) return;
+        if (moduloAperto != null) {
+            moduloAperto.requestFocus();
+            return;
+        }
+        Dipendente selezionato = dipendentiTable.getSelectionModel().getSelectedItem();
+        aggiornaPulsanteModifica();
+        if (cessaContrattoButton.isDisabled()) return;
+        // La data visualizzata è una previsione: il service rilegge i dati sotto blocco.
+        var fine = ContrattoService.calcolaFineCessazione(
+                LocalDate.now(), selezionato.getContratto().getDataFine());
+        var formato = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        Alert conferma = new Alert(Alert.AlertType.CONFIRMATION,
+                "Il contratto di " + selezionato.getNomeCompleto()
+                        + " resterà valido fino al " + fine.format(formato)
+                        + " incluso. Il contratto sarà conservato nello storico.",
+                ButtonType.OK, ButtonType.CANCEL);
+        conferma.setTitle("Cessa contratto");
+        conferma.setHeaderText("Confermi la cessazione programmata?");
+        if (cessaContrattoButton.getScene() != null) {
+            conferma.initOwner(cessaContrattoButton.getScene().getWindow());
+        }
+        confermaCessazioneAperta = true;
+        aggiornaPulsanteModifica();
+        boolean accettata;
+        try {
+            accettata = conferma.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK;
+        } finally {
+            confermaCessazioneAperta = false;
+            aggiornaPulsanteModifica();
+        }
+        if (!accettata) return;
+        int dipendenteId = selezionato.getId();
+        int contrattoId = selezionato.getContratto().getId();
+        impostaCaricamento(true); // Blocca doppi clic durante scrittura e rilettura.
+        mostraMessaggio("Salvataggio della cessazione…");
+        Task<ContrattoService.EsitoCessazione> operazione = new Task<>() {
+            @Override
+            protected ContrattoService.EsitoCessazione call() throws SQLException {
+                return contrattoService.cessa(dipendenteId, contrattoId);
+            }
+        };
+        operazione.setOnSucceeded(event -> {
+            // Soltanto il ritorno del service attesta il completamento del salvataggio.
+            var esito = operazione.getValue();
+            String messaggio = "Cessazione registrata. Ultimo giorno valido: "
+                    + esito.ultimoGiornoValido().format(formato) + ".";
+            if (esito.richiedeRicontrolloTurni()) {
+                messaggio += " Ci sono turni successivi da ricontrollare.";
+            } else if (esito.integrazionePianificazioneDaCompletare()) {
+                messaggio += " Verifica dei turni non disponibile: controlla la pianificazione.";
+            }
+            impostaCaricamento(false);
+            caricaDipendenti(messaggio);
+        });
+        operazione.setOnFailed(event -> {
+            Throwable errore = operazione.getException();
+            mostraMessaggio(errore instanceof IllegalArgumentException
+                    ? errore.getMessage()
+                    : "Impossibile completare la cessazione. Aggiorna l'elenco prima di riprovare.");
+            impostaCaricamento(false);
+        });
+        Thread thread = new Thread(operazione, "cessazione-contratto");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    /** Blocca temporaneamente le azioni mentre è in corso una lettura o scrittura. */
     private void impostaCaricamento(boolean inCorso) {
         caricamentoInCorso = inCorso;
         aggiornaButton.setDisable(inCorso);

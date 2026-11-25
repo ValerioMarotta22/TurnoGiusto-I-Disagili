@@ -78,8 +78,8 @@ public class ContrattoService {
 
     /**
      * Calcola l'ultimo giorno valido in caso di cessazione programmata.
-     * Il contratto termina la domenica prima del primo lunedì
-     * del mese successivo alla richiesta.
+     * Il contratto termina l'ultimo giorno del mese della richiesta, incluso.
+     * Questa regola è distinta dalla decorrenza di un cambio contratto.
      *
      * Se esiste una scadenza precedente, la conserva:
      * una cessazione non deve prolungare il contratto.
@@ -90,8 +90,10 @@ public class ContrattoService {
     public static LocalDate calcolaFineCessazione(
             LocalDate dataRichiesta, LocalDate scadenzaAttuale) {
 
-        LocalDate fineProgrammata =
-                calcolaDecorrenza(dataRichiesta).minusDays(1);
+        if (dataRichiesta == null) {
+            throw new IllegalArgumentException("La data della richiesta è obbligatoria.");
+        }
+        LocalDate fineProgrammata = dataRichiesta.with(TemporalAdjusters.lastDayOfMonth());
 
         // null significa che il contratto non ha una scadenza.
         if (scadenzaAttuale != null
