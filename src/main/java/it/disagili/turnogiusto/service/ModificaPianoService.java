@@ -14,9 +14,11 @@ import it.disagili.turnogiusto.service.vincoli.VerificatoreVincoliUS07;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -139,20 +141,45 @@ public class ModificaPianoService {
     // CONTROLLARE IL PIANO
     // ======================================================================
     public Esito verifica(PianoSettimanale piano) throws SQLException {
+        // Gli avvisi sul fabbisogno non dipendono dai controlli di US07: si calcolano sempre, dal piano.
+        List<String> fabbisogno = avvisiFabbisogno(piano);
         try {
             // Le assegnazioni "confinanti" (giorno prima e dopo la settimana) si leggono dal database.
             List<AssegnazioneTurno> confinanti = piani.trovaConfinanti(piano.inizioSettimana());
             List<String> violazioni = verificaPiano.verifica(piano, confinanti);
-            return new Esito(piano, conNomi(piano.inizioSettimana(), violazioni), true);
+            // Prima le regole di lavoro (US07), poi i posti che restano scoperti.
+            List<String> tutte = new ArrayList<>(conNomi(piano.inizioSettimana(), violazioni));
+            tutte.addAll(fabbisogno);
+            return new Esito(piano, tutte, true);
         } catch (IllegalStateException nonCollegato) {
             // Il service di Edoardo lancia questa eccezione quando il verificatore US07 e' null.
-            // Non e' un errore dell'utente: restituisco il piano senza controlli, dichiarandolo.
-            return new Esito(piano, List.of(), false);
+            // Non e' un errore dell'utente: restituisco il piano senza i controlli di US07, dichiarandolo.
+            return new Esito(piano, fabbisogno, false);
         } catch (IllegalArgumentException nonEseguibile) {
             // I controlli di Antonio rifiutano i dati incompleti (per esempio un giorno senza contratto).
             // Il piano resta modificabile: dico perche' i controlli non sono stati eseguiti.
-            return new Esito(piano, List.of("Controlli non eseguibili: " + nonEseguibile.getMessage()), false);
+            List<String> tutte = new ArrayList<>();
+            tutte.add("Controlli non eseguibili: " + nonEseguibile.getMessage());
+            tutte.addAll(fabbisogno);
+            return new Esito(piano, tutte, false);
         }
+    }
+
+    // FABBISOGNO NON COPERTO: una riga di avviso per ogni turno con posti scoperti (quelli in rosso nella tabella).
+    // Esempio: "Fabbisogno non coperto: dom 06/12 Cena, Cameriere - mancano 4 posti su 5".
+    private static final DateTimeFormatter GIORNO = DateTimeFormatter.ofPattern("EEE dd/MM", Locale.ITALIAN);
+
+    private static List<String> avvisiFabbisogno(PianoSettimanale piano) {
+        List<String> avvisi = new ArrayList<>();
+        for (Turno turno : piano.turni()) {
+            int mancanti = turno.postiScoperti();
+            if (mancanti > 0) {
+                avvisi.add("Fabbisogno non coperto: " + turno.inizio().format(GIORNO) + " " + turno.servizio()
+                        + ", " + turno.ruolo() + " - " + (mancanti == 1 ? "manca 1 posto" : "mancano " + mancanti + " posti")
+                        + " su " + turno.postiRichiesti());
+            }
+        }
+        return avvisi;
     }
 
     // I testi dell'adattatore cominciano con "Dipendente 12: ". Qui l'ID diventa il nome, cosi' il titolare

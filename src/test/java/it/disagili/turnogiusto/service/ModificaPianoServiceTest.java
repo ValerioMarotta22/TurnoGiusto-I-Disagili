@@ -31,6 +31,10 @@ class ModificaPianoServiceTest {
     private static final LocalDateTime INIZIO_CENA = LUNEDI.plusDays(5).atTime(18, 0); // sabato
     private static final LocalDateTime FINE_CENA = INIZIO_CENA.plusHours(6);
 
+    // l'avviso che compare per cenaDelSabato(): 3 posti richiesti, 2 assegnati
+    private static final String AVVISO_CENA_SABATO =
+            "Fabbisogno non coperto: sab 05/12 Cena, Cameriere - manca 1 posto su 3";
+
     // id dei dipendenti di prova
     private static final int ANNA = 1, SARA = 2, LUCA = 3, PAOLO = 4, GIULIA = 5, MARCO = 6;
 
@@ -133,7 +137,8 @@ class ModificaPianoServiceTest {
         ModificaPianoService.Esito esito = service.sostituisci(piano(cenaDelSabato()), cenaDelSabato(), ANNA, LUCA);
 
         // "Dipendente 3" diventa il nome della persona
-        assertEquals(List.of("Luca Prova: 10 ore di riposo, minimo 11"), esito.violazioni());
+        // prima la regola di lavoro, poi l'avviso sul posto che resta scoperto
+        assertEquals(List.of("Luca Prova: 10 ore di riposo, minimo 11", AVVISO_CENA_SABATO), esito.violazioni());
         assertTrue(assegnatiDi(esito.piano(), 0).contains(LUCA)); // la modifica c'e' comunque
     }
 
@@ -143,7 +148,7 @@ class ModificaPianoServiceTest {
 
         ModificaPianoService.Esito esito = service.sostituisci(piano(cenaDelSabato()), cenaDelSabato(), ANNA, LUCA);
 
-        assertEquals(List.of("Troppi part-time nel turno"), esito.violazioni());
+        assertEquals(List.of("Troppi part-time nel turno", AVVISO_CENA_SABATO), esito.violazioni());
     }
 
     @Test
@@ -153,8 +158,9 @@ class ModificaPianoServiceTest {
         ModificaPianoService.Esito esito = service.sostituisci(piano(cenaDelSabato()), cenaDelSabato(), ANNA, LUCA);
 
         assertFalse(esito.controlloEseguito());
-        assertEquals(1, esito.violazioni().size());
+        assertEquals(2, esito.violazioni().size());
         assertTrue(esito.violazioni().get(0).contains("Controlli non eseguibili"));
+        assertEquals(AVVISO_CENA_SABATO, esito.violazioni().get(1)); // il fabbisogno si controlla comunque
         assertTrue(assegnatiDi(esito.piano(), 0).contains(LUCA));
     }
 
@@ -175,8 +181,54 @@ class ModificaPianoServiceTest {
         ModificaPianoService.Esito esito = service.sostituisci(piano(cenaDelSabato()), cenaDelSabato(), ANNA, LUCA);
 
         assertFalse(esito.controlloEseguito());
-        assertTrue(esito.violazioni().isEmpty());
+        // le regole di US07 non si controllano, ma il posto scoperto si vede lo stesso
+        assertEquals(List.of(AVVISO_CENA_SABATO), esito.violazioni());
         assertTrue(assegnatiDi(esito.piano(), 0).contains(LUCA));
+    }
+
+    // ================================================================ FABBISOGNO NON COPERTO
+
+    @Test
+    void unPostoScopertoDaUnAvvisoDiFabbisognoNonCoperto() throws Exception {
+        // cena del sabato: 3 camerieri richiesti, 2 assegnati -> manca 1 posto
+        ModificaPianoService.Esito esito = service.verifica(piano(cenaDelSabato()));
+
+        assertTrue(esito.controlloEseguito());
+        assertEquals(List.of(AVVISO_CENA_SABATO), esito.violazioni());
+    }
+
+    @Test
+    void unAvvisoPerOgniRigaScopertaConIlNumeroDiPostiMancanti() throws Exception {
+        Turno pranzoVuoto = riga(Servizio.PRANZO, Ruolo.LAVAPIATTI, LUNEDI.atTime(11, 30), LUNEDI.atTime(16, 0), 2);
+        Turno cenaCompleta = riga(Servizio.CENA, Ruolo.CAMERIERE, INIZIO_CENA, FINE_CENA, 2, ANNA, SARA);
+
+        ModificaPianoService.Esito esito = service.verifica(piano(pranzoVuoto, cenaCompleta, cenaDelSabato2()));
+
+        // la riga completa non compare; quella vuota dice "mancano 2 posti su 2"
+        assertEquals(List.of("Fabbisogno non coperto: lun 30/11 Pranzo, Lavapiatti - mancano 2 posti su 2",
+                "Fabbisogno non coperto: sab 05/12 Cena, Cuoco - manca 1 posto su 1"), esito.violazioni());
+    }
+
+    @Test
+    void unPianoCheCopreTuttoIlFabbisognoNonHaAvvisi() throws Exception {
+        Turno completa = riga(Servizio.CENA, Ruolo.CAMERIERE, INIZIO_CENA, FINE_CENA, 2, ANNA, SARA);
+
+        ModificaPianoService.Esito esito = service.verifica(piano(completa));
+
+        assertTrue(esito.violazioni().isEmpty());
+    }
+
+    @Test
+    void copreUnPostoScopertoFaSparireLAvviso() throws Exception {
+        ModificaPianoService.Esito esito = service.assegnaAlPostoScoperto(piano(cenaDelSabato()), cenaDelSabato(), LUCA);
+
+        assertEquals(3, esito.piano().turni().get(0).assegnazioni().size());
+        assertTrue(esito.violazioni().isEmpty(), "Coperto il posto, l'avviso non deve piu' comparire");
+    }
+
+    // sabato a cena: 1 cuoco richiesto e nessuno assegnato (solo per i test sugli avvisi)
+    private static Turno cenaDelSabato2() {
+        return riga(Servizio.CENA, Ruolo.CUOCO, INIZIO_CENA, FINE_CENA, 1);
     }
 
     // ================================================================ RIFIUTI

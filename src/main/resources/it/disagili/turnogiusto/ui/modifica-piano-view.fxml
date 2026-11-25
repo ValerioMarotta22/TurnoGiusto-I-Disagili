@@ -61,11 +61,12 @@
                styleClass="nota" wrapText="true"/>
     </VBox>
 
-    <!-- CONTROLLI DI US07: 11 ore di riposo, monte ore, riposo settimanale. Non bloccano il salvataggio. -->
-    <Label text="Controlli sulle regole" styleClass="sottotitolo"/>
+    <!-- AVVISI: regole di US07 (11 ore di riposo, monte ore, riposo settimanale) e posti del fabbisogno
+         rimasti scoperti. Non bloccano il salvataggio. -->
+    <Label text="Avvisi: regole e fabbisogno" styleClass="sottotitolo"/>
     <ListView fx:id="violazioni" prefHeight="110" minHeight="80">
         <placeholder>
-            <Label text="Nessuna violazione da mostrare."/>
+            <Label text="Nessun avviso da mostrare."/>
         </placeholder>
     </ListView>
     <Label fx:id="statoControlli" styleClass="nota" wrapText="true"/>
