@@ -1305,6 +1305,25 @@ class VerificaVincoliServiceTest {
         assertEquals(originali, contratti);
     }
 
+    /** Fine mese di giovedì: la cena è ammessa, il pranzo di venerdì no. */
+    @Test
+    void cessazioneAFineMeseCopreSoloITurniFinoAllUltimoGiornoIncluso() {
+        var lunedi = LocalDate.of(2026, 12, 28);
+        // Giovedì 31 dicembre è l'ultimo giorno valido, anche se la settimana prosegue.
+        var fine = it.disagili.turnogiusto.service.ContrattoService.calcolaFineCessazione(
+                LocalDate.of(2026, 12, 15), null);
+        assertEquals(LocalDate.of(2026, 12, 31), fine);
+        var contratto = contrattoSettimanaleDiProva(20);
+        contratto.setDataFine(fine);
+        var cena = new AssegnazioneDaVerificare(5, fine, Servizio.CENA,
+                fine.atTime(18, 0), fine.plusDays(1).atTime(0, 30));
+        var verificatore = new VerificaVincoliService();
+        assertTrue(verificatore.verificaSettimana(
+                lunedi, List.of(cena), List.of(), List.of(contratto)).isEmpty());
+        assertThrows(IllegalArgumentException.class, () -> verificatore.verificaSettimana(
+                lunedi, pranziStandardDa(5, fine.plusDays(1), 1), List.of(), List.of(contratto)));
+    }
+
     /** Contratto con dati validi, valido esattamente dal lunedì alla domenica del test. */
     private Contratto contrattoSettimanaleDiProva(int ore) {
         var lunedi = LocalDate.of(2026, 11, 23);

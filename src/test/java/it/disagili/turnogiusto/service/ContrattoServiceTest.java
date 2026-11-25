@@ -39,31 +39,31 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 class ContrattoServiceTest {
     /** Solo calcolo in memoria: queste prove non aprono connessioni al database. */
     @Test
-    void calcolaFineCessazioneSenzaScadenzaAllaDomenicaPrecedente() {
-        assertEquals(LocalDate.of(2026, 12, 6),
+    void calcolaFineCessazioneSenzaScadenzaAllaFineDelMese() {
+        assertEquals(LocalDate.of(2026, 11, 30),
                 ContrattoService.calcolaFineCessazione(LocalDate.of(2026, 11, 24), null));
     }
 
     @Test
     void calcolaFineCessazioneConservaLaScadenzaAnticipata() {
-        // La richiesta non deve estendere un contratto che finisce già a novembre.
-        assertEquals(LocalDate.of(2026, 11, 30),
+        // La richiesta non deve estendere un contratto che finisce prima della fine del mese.
+        assertEquals(LocalDate.of(2026, 11, 27),
                 ContrattoService.calcolaFineCessazione(
-                        LocalDate.of(2026, 11, 24), LocalDate.of(2026, 11, 30)));
+                        LocalDate.of(2026, 11, 24), LocalDate.of(2026, 11, 27)));
     }
 
     @Test
     void calcolaFineCessazioneAnticipaLaScadenzaSuccessiva() {
-        assertEquals(LocalDate.of(2026, 12, 6),
+        assertEquals(LocalDate.of(2026, 11, 30),
                 ContrattoService.calcolaFineCessazione(
                         LocalDate.of(2026, 11, 24), LocalDate.of(2026, 12, 31)));
     }
 
     @Test
     void calcolaFineCessazioneConservaLaScadenzaCoincidente() {
-        assertEquals(LocalDate.of(2026, 12, 6),
+        assertEquals(LocalDate.of(2026, 11, 30),
                 ContrattoService.calcolaFineCessazione(
-                        LocalDate.of(2026, 11, 24), LocalDate.of(2026, 12, 6)));
+                        LocalDate.of(2026, 11, 24), LocalDate.of(2026, 11, 30)));
     }
 
     @Test
@@ -75,7 +75,7 @@ class ContrattoServiceTest {
 
     @Test
     void calcolaFineCessazioneAttraversaIlCambioDiAnno() {
-        assertEquals(LocalDate.of(2027, 1, 3),
+        assertEquals(LocalDate.of(2026, 12, 31),
                 ContrattoService.calcolaFineCessazione(LocalDate.of(2026, 12, 31), null));
     }
 
@@ -86,6 +86,14 @@ class ContrattoServiceTest {
                 () -> ContrattoService.calcolaFineCessazione(null, null));
         assertThrows(IllegalArgumentException.class,
                 () -> ContrattoService.calcolaFineCessazione(null, LocalDate.of(2026, 11, 30)));
+    }
+
+    @Test
+    void calcolaFineCessazioneGestisceFebbraioComuneEBisestile() {
+        assertEquals(LocalDate.of(2027, 2, 28),
+                ContrattoService.calcolaFineCessazione(LocalDate.of(2027, 2, 10), null));
+        assertEquals(LocalDate.of(2028, 2, 29),
+                ContrattoService.calcolaFineCessazione(LocalDate.of(2028, 2, 10), null));
     }
 
     @Test

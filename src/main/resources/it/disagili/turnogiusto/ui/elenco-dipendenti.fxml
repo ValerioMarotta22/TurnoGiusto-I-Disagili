@@ -31,6 +31,9 @@
 
 
 
+        <!-- La cessazione conserva lo storico e richiede una conferma prima del salvataggio. -->
+        <Button fx:id="cessaContrattoButton" text="Cessa contratto"
+                onAction="#onCessaContratto" disable="true"/>
         <Button fx:id="aggiornaButton"
                 text="Aggiorna elenco" onAction="#caricaDipendenti"/>
     </HBox>
