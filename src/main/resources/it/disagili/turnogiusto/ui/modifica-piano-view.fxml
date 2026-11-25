@@ -64,7 +64,7 @@
     <!-- AVVISI: regole di US07 (11 ore di riposo, monte ore, riposo settimanale) e posti del fabbisogno
          rimasti scoperti. Non bloccano il salvataggio. -->
     <Label text="Avvisi: regole e fabbisogno" styleClass="sottotitolo"/>
-    <ListView fx:id="violazioni" prefHeight="110" minHeight="80">
+    <ListView fx:id="violazioni" prefHeight="200" minHeight="110">
         <placeholder>
             <Label text="Nessun avviso da mostrare."/>
         </placeholder>
