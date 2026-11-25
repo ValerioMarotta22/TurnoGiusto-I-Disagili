@@ -1,10 +1,10 @@
 # US06A — Generazione del piano settimanale
 
-In **Turni → Genera piano settimanale** scegli il lunedì dal calendario, indica gli orari di pranzo e cena e seleziona gli eventuali festivi. Premi **Genera bozza** per vedere per ogni servizio i posti richiesti, i dipendenti assegnati e le scoperture. La colonna **Scoperti** mostra un fondo rosso tenue quando mancano persone e verde tenue quando i posti sono tutti coperti.
+In **Turni → Genera piano settimanale** scegli il lunedì dal calendario e seleziona gli eventuali festivi. Premi **Genera bozza** per vedere per ogni servizio i posti richiesti, i dipendenti assegnati e le scoperture. La colonna **Scoperti** mostra un fondo rosso tenue quando mancano persone e verde tenue quando i posti sono tutti coperti.
 
-La bozza raggruppa le righe per giorno e, dentro ogni giorno, per **Pranzo** e **Cena**. Usa le frecce per aprire o richiudere ciascun gruppo. I gruppi con turni partono aperti. Puoi aprire anche un giorno o un servizio senza fabbisogni per vedere il relativo messaggio.
+La bozza raggruppa le righe per giorno e, dentro ogni giorno, per **Pranzo** e **Cena**. Clicca in qualsiasi punto della barra del giorno o del servizio per aprire o richiudere il gruppo, anche sulla freccia. Il testo delle barre rimane nero anche dopo la selezione. I gruppi con turni partono aperti. Puoi aprire anche un giorno o un servizio senza fabbisogni per vedere il relativo messaggio.
 
-Il Service ripete i fabbisogni configurati sui giorni della settimana. Un festivo selezionato usa il proprio fabbisogno anche se cade nel weekend. Gli orari preselezionati sono 11:30–16:00 per il pranzo e 18:00–00:30 del giorno successivo per la cena. Puoi scegliere un orario ogni 15 minuti dall'elenco o scriverne uno più preciso.
+Il Service ripete i fabbisogni configurati sui giorni della settimana. Un festivo selezionato usa il proprio fabbisogno anche se cade nel weekend. Gli orari sono fissi: **10:00–16:00** per il pranzo e **17:00–00:30 del giorno successivo** per la cena. Sono mostrati nella schermata e nelle barre dei servizi e vengono usati per generare i turni.
 
 Le assegnazioni vengono provate in ordine di orario e di ID dipendente. Servono ruolo corretto, contratto valido alla data di inizio del turno e assenza di sovrapposizioni. Per il part-time le fasce ricorrenti devono coprire l'intero turno. Per il full-time si assume la disponibilità di base. Il piano rimane in memoria e mostra «Monte ore e riposi da verificare» finché il verificatore US07 non è collegato.
 

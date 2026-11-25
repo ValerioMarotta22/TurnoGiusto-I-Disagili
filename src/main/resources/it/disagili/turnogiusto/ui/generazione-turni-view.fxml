@@ -20,14 +20,8 @@
             <Button fx:id="genera" text="Genera bozza" onAction="#onGenera" styleClass="principale"/>
         </HBox>
         <HBox spacing="10" alignment="CENTER_LEFT">
-            <Label text="Pranzo da"/>
-            <ComboBox fx:id="inizioPranzo" editable="true" accessibleText="Inizio pranzo" prefWidth="105" visibleRowCount="8"/>
-            <Label text="a"/>
-            <ComboBox fx:id="finePranzo" editable="true" accessibleText="Fine pranzo" prefWidth="105" visibleRowCount="8"/>
-            <Label text="Cena da"/>
-            <ComboBox fx:id="inizioCena" editable="true" accessibleText="Inizio cena" prefWidth="105" visibleRowCount="8"/>
-            <Label text="a"/>
-            <ComboBox fx:id="fineCena" editable="true" accessibleText="Fine cena" prefWidth="105" visibleRowCount="8"/>
+            <Label fx:id="orarioPranzo"/>
+            <Label fx:id="orarioCena"/>
         </HBox>
         <HBox spacing="10" alignment="CENTER_LEFT">
             <Label text="Giorni festivi" styleClass="sottotitolo" minWidth="90"/>
@@ -35,7 +29,7 @@
         </HBox>
     </VBox>
 
-    <TreeTableView fx:id="tabella" showRoot="false" VBox.vgrow="ALWAYS">
+    <TreeTableView fx:id="tabella" styleClass="piano-generato" showRoot="false" VBox.vgrow="ALWAYS">
         <columnResizePolicy>
             <TreeTableView fx:constant="CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN"/>
         </columnResizePolicy>

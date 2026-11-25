@@ -5,16 +5,13 @@ import it.disagili.turnogiusto.model.PianoSettimanale;
 import it.disagili.turnogiusto.model.Servizio;
 import it.disagili.turnogiusto.model.Turno;
 import it.disagili.turnogiusto.service.GenerazioneTurniService;
-import it.disagili.turnogiusto.service.ValidazioneDisponibilita;
 import it.disagili.turnogiusto.service.vincoli.VerificatoreVincoliUS07;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.ReadOnlyStringWrapper;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
+import javafx.css.PseudoClass;
 import javafx.fxml.FXML;
 import javafx.scene.control.CheckBox;
-import javafx.scene.control.ComboBox;
 import javafx.scene.control.DateCell;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
@@ -23,6 +20,8 @@ import javafx.scene.control.TreeTableCell;
 import javafx.scene.control.TreeTableColumn;
 import javafx.scene.control.TreeTableRow;
 import javafx.scene.control.TreeTableView;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.VBox;
 import javafx.util.converter.LocalDateStringConverter;
@@ -43,18 +42,21 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 
-/** Legge gli orari e mostra la bozza generata dal service, mantenendo reattiva la schermata. */
+/** Genera e mostra la bozza con gli orari fissi dei servizi, mantenendo reattiva la schermata. */
 public class GenerazioneTurniController {
     private static final DateTimeFormatter GIORNO = DateTimeFormatter.ofPattern("EEE dd/MM", Locale.ITALIAN);
     private static final DateTimeFormatter GIORNO_COMPLETO = DateTimeFormatter.ofPattern("EEEE dd/MM", Locale.ITALIAN);
     private static final DateTimeFormatter DATA = DateTimeFormatter.ofPattern("dd/MM/uuuu", Locale.ITALIAN);
+    private static final Map<Servizio, OrarioServizio> ORARI_SERVIZI = Map.of(
+            Servizio.PRANZO, new OrarioServizio(LocalTime.of(10, 0), LocalTime.of(16, 0)),
+            Servizio.CENA, new OrarioServizio(LocalTime.of(17, 0), LocalTime.of(0, 30)));
+    private static final PseudoClass GIORNO_PIANO = PseudoClass.getPseudoClass("giorno-piano");
+    private static final PseudoClass SERVIZIO_PIANO = PseudoClass.getPseudoClass("servizio-piano");
 
     @FXML private VBox impostazioni;
     @FXML private DatePicker settimana;
-    @FXML private ComboBox<String> inizioPranzo;
-    @FXML private ComboBox<String> finePranzo;
-    @FXML private ComboBox<String> inizioCena;
-    @FXML private ComboBox<String> fineCena;
+    @FXML private Label orarioPranzo;
+    @FXML private Label orarioCena;
     @FXML private FlowPane festivi;
     @FXML private TreeTableView<RigaPiano> tabella;
     @FXML private TreeTableColumn<RigaPiano, String> orarioColonna;
@@ -91,11 +93,12 @@ public class GenerazioneTurniController {
         // Le etichette dei festivi seguono le date della settimana selezionata.
         settimana.valueProperty().addListener((osservabile, prima, dopo) -> cambiaSettimana(dopo));
         cambiaSettimana(settimana.getValue());
-        preparaOrari();
+        orarioPranzo.setText(testoServizio(Servizio.PRANZO));
+        orarioCena.setText(testoServizio(Servizio.CENA));
         configuraTabella();
     }
 
-    /** Giorni e servizi usano le frecce e i rientri nativi della tabella ad albero. */
+    /** Giorni e servizi si aprono da tutta la riga, mantenendo frecce e navigazione da tastiera. */
     private void configuraTabella() {
         tabella.setTreeColumn(orarioColonna);
         orarioColonna.setCellValueFactory(cella -> new ReadOnlyStringWrapper(cella.getValue().getValue().testo()));
@@ -104,17 +107,30 @@ public class GenerazioneTurniController {
         configuraColonnaTurno(richiestiColonna, Turno::postiRichiesti);
         configuraColonnaTurno(scopertiColonna, Turno::postiScoperti);
         tabella.setRowFactory(vista -> new TreeTableRow<>() {
+            {
+                addEventFilter(MouseEvent.MOUSE_PRESSED, evento -> {
+                    TreeItem<RigaPiano> voce = getTreeItem();
+                    if (evento.getButton() == MouseButton.PRIMARY && !isEmpty()
+                            && voce != null && !voce.isLeaf()) {
+                        vista.requestFocus();
+                        vista.getSelectionModel().select(voce);
+                        vista.getFocusModel().focus(getIndex());
+                        voce.setExpanded(!voce.isExpanded());
+                        // Intercetta anche la freccia e il doppio clic prima del comportamento nativo.
+                        evento.consume();
+                    }
+                });
+            }
+
             @Override
             protected void updateItem(RigaPiano riga, boolean vuota) {
                 super.updateItem(riga, vuota);
                 TreeItem<RigaPiano> voce = getTreeItem();
-                if (vuota || voce == null || voce.isLeaf()) {
-                    setStyle("");
-                    return;
-                }
-                // Lo sfondo distingue le intestazioni dei giorni da quelle rientrate dei servizi.
-                String sfondo = voce.getParent() == tabella.getRoot() ? "#e8eff7" : "#f1f5fa";
-                setStyle("-fx-background-color: " + sfondo + "; -fx-font-weight: bold;");
+                boolean intestazione = !vuota && voce != null && !voce.isLeaf();
+                boolean giorno = intestazione && voce.getParent() == tabella.getRoot();
+                // Azzera entrambi gli stati quando JavaFX riutilizza una riga per un turno.
+                pseudoClassStateChanged(GIORNO_PIANO, giorno);
+                pseudoClassStateChanged(SERVIZIO_PIANO, intestazione && !giorno);
             }
         });
         scopertiColonna.setCellFactory(colonna -> new TreeTableCell<>() {
@@ -158,20 +174,9 @@ public class GenerazioneTurniController {
         });
     }
 
-    /** Propone intervalli di 15 minuti lasciando inseribili anche gli orari fuori elenco. */
-    private void preparaOrari() {
-        ObservableList<String> orari = FXCollections.observableArrayList();
-        for (int minuti = 0; minuti < 24 * 60; minuti += 15) {
-            orari.add(LocalTime.MIDNIGHT.plusMinutes(minuti).toString());
-        }
-        inizioPranzo.setItems(orari);
-        finePranzo.setItems(orari);
-        inizioCena.setItems(orari);
-        fineCena.setItems(orari);
-        inizioPranzo.setValue("11:30");
-        finePranzo.setValue("16:00");
-        inizioCena.setValue("18:00");
-        fineCena.setValue("00:30");
+    private String testoServizio(Servizio servizio) {
+        OrarioServizio orario = ORARI_SERVIZI.get(servizio);
+        return servizio + " " + orario.inizio() + " – " + orario.fine();
     }
 
     /** Quando cambia la settimana, le scelte dei festivi della precedente vengono azzerate. */
@@ -192,12 +197,9 @@ public class GenerazioneTurniController {
     @FXML
     private void onGenera() {
         LocalDate lunedi;
-        Map<Servizio, OrarioServizio> orari;
         try {
             lunedi = settimana.getValue();
             PianoSettimanale.verificaInizioSettimana(lunedi);
-            orari = Map.of(Servizio.PRANZO, leggiOrario(inizioPranzo, finePranzo),
-                    Servizio.CENA, leggiOrario(inizioCena, fineCena));
         } catch (IllegalArgumentException errore) {
             mostraMessaggio(errore.getMessage(), true);
             return;
@@ -210,7 +212,7 @@ public class GenerazioneTurniController {
             @Override
             protected GenerazioneTurniService.Esito call() throws SQLException {
                 // La persistenza della US06B fornirà i turni delle settimane confinanti.
-                return servizio.genera(lunedi, orari, giorniFestivi, List.of());
+                return servizio.genera(lunedi, ORARI_SERVIZI, giorniFestivi, List.of());
             }
         };
         lavoro.setOnSucceeded(evento -> {
@@ -231,20 +233,6 @@ public class GenerazioneTurniController {
         Thread thread = new Thread(lavoro, "generazione-turni");
         thread.setDaemon(true);
         thread.start();
-    }
-
-    private OrarioServizio leggiOrario(ComboBox<String> inizio, ComboBox<String> fine) {
-        return new OrarioServizio(leggiOra(inizio), leggiOra(fine));
-    }
-
-    /** Legge anche il testo appena digitato, prima che la ComboBox aggiorni il valore selezionato. */
-    private LocalTime leggiOra(ComboBox<String> campo) {
-        try {
-            return ValidazioneDisponibilita.leggiOra(campo.getEditor().getText());
-        } catch (IllegalArgumentException errore) {
-            throw new IllegalArgumentException(campo.getAccessibleText()
-                    + ". Scegli un orario dall'elenco o scrivilo come 18:30.");
-        }
     }
 
     private Set<LocalDate> leggiFestivi() {
@@ -309,7 +297,7 @@ public class GenerazioneTurniController {
 
     /** Anche un servizio senza turni si può aprire, perché contiene un messaggio. */
     private TreeItem<RigaPiano> creaGruppoServizio(LocalDate giorno, Servizio servizio, List<Turno> turniDelGiorno) {
-        TreeItem<RigaPiano> gruppo = new TreeItem<>(new RigaPiano(giorno, servizio.toString(), null));
+        TreeItem<RigaPiano> gruppo = new TreeItem<>(new RigaPiano(giorno, testoServizio(servizio), null));
         for (Turno turno : turniDelGiorno) {
             if (turno.servizio() == servizio) {
                 gruppo.getChildren().add(new TreeItem<>(new RigaPiano(giorno, testoOrario(turno), turno)));
