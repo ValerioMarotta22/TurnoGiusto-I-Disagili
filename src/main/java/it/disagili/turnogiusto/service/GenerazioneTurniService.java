@@ -14,6 +14,7 @@ import it.disagili.turnogiusto.model.Turno;
 import it.disagili.turnogiusto.repository.DipendenteRepository;
 import it.disagili.turnogiusto.repository.DisponibilitaRepository;
 import it.disagili.turnogiusto.repository.FabbisognoRepository;
+import it.disagili.turnogiusto.service.vincoli.VerificatoreVincoliUS07;
 
 import java.sql.SQLException;
 import java.time.DayOfWeek;
@@ -35,9 +36,17 @@ public class GenerazioneTurniService {
     private final DisponibilitaRepository disponibilita;
     private final VerificatorePropostaTurni verificatore;
 
-    /** Configurazione attuale per la bozza, in attesa del collegamento con US07. */
+    /** Senza controlli sui vincoli: serve ai test dell'algoritmo. L'applicazione usa {@link #conVincoli()}. */
     public GenerazioneTurniService() {
         this(null);
+    }
+
+    /**
+     * Configurazione dell'applicazione: ogni assegnazione provata passa dai controlli di US07
+     * (riposo, doppio servizio, giorno libero, monte ore) e quelle che li violano vengono scartate.
+     */
+    public static GenerazioneTurniService conVincoli() {
+        return new GenerazioneTurniService(new VerificatoreVincoliUS07());
     }
 
     /** Entrata per l'integrazione con il verificatore di Antonio. */
