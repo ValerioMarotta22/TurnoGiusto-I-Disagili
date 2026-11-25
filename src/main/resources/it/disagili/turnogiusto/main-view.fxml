@@ -5,16 +5,23 @@
      sceglie una voce di menu, la schermata corrispondente viene caricata
      nell'area centrale (lo fa MainController).
 
-     PER AGGIUNGERE UNA SCHERMATA (ognuno la sua, in 3 passi):
+     CHI VEDE COSA: dopo l'accesso, MainController toglie dalla barra le voci che l'utente non puo' usare
+     (regole in Autorizzazioni). Il titolare vede Dipendenti, Disponibilita', Fabbisogno e Turni;
+     il dipendente vede "I miei turni" e, se e' part-time, "Le mie disponibilita'".
+     Tutti vedono "Account" per uscire.
+
+     PER AGGIUNGERE UNA SCHERMATA (ognuno la sua, in 4 passi):
        1. crea il tuo file FXML (come fabbisogno-view.fxml) e il tuo controller;
        2. qui sotto, scrivi/modifica la voce di menu con onAction="#apriLaTuaSchermata";
        3. in MainController, scrivi il metodo apriLaTuaSchermata() che chiama
-          caricaSchermata("il-tuo-file.fxml"). -->
+          caricaSchermata("il-tuo-file.fxml");
+       4. aggiungi la funzione in Funzione e le regole in Autorizzazioni, e controllala con richiedi(...). -->
 
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.Menu?>
 <?import javafx.scene.control.MenuBar?>
 <?import javafx.scene.control.MenuItem?>
+<?import javafx.scene.control.SeparatorMenuItem?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.StackPane?>
 
@@ -27,29 +34,40 @@
          ogni <MenuItem> una voce a tendina. onAction="#nome" chiama il metodo
          con quel nome in MainController. -->
     <top>
-        <MenuBar>
-            <Menu text="Dipendenti">
+        <MenuBar fx:id="barra">
+            <Menu fx:id="menuDipendenti" text="Dipendenti">
                 <MenuItem text="Registrazione e contratti" onAction="#apriDipendenti"/>
             </Menu>
-            <Menu text="Disponibilità">
+            <Menu fx:id="menuDisponibilita" text="Disponibilità">
                 <MenuItem text="Disponibilità part-time" onAction="#apriDisponibilita"/>
             </Menu>
-            <Menu text="Fabbisogno">
+            <Menu fx:id="menuFabbisogno" text="Fabbisogno">
                 <MenuItem text="Fabbisogno di personale" onAction="#apriFabbisogno"/>
             </Menu>
-            <Menu text="Turni">
-                <MenuItem text="Genera piano settimanale" onAction="#apriGenerazioneTurni"/>
-                <MenuItem text="Modifica piano settimanale" onAction="#apriModificaPiano"/>
+            <Menu fx:id="menuTurni" text="Turni">
+                <MenuItem fx:id="voceGenera" text="Genera piano settimanale" onAction="#apriGenerazioneTurni"/>
+                <MenuItem fx:id="voceModifica" text="Modifica piano settimanale" onAction="#apriModificaPiano"/>
+            </Menu>
+            <Menu fx:id="menuMieiTurni" text="I miei turni">
+                <MenuItem text="Il mio piano settimanale" onAction="#apriMieiTurni"/>
+            </Menu>
+            <Menu fx:id="menuLeMieDisponibilita" text="Le mie disponibilità">
+                <MenuItem text="Gestisci le mie fasce" onAction="#apriLeMieDisponibilita"/>
+            </Menu>
+            <Menu fx:id="menuAccount" text="Account">
+                <MenuItem fx:id="voceUtente" text="Nessun utente collegato" disable="true"/>
+                <SeparatorMenuItem/>
+                <MenuItem text="Esci" onAction="#onEsci"/>
             </Menu>
         </MenuBar>
     </top>
 
     <!-- ZONA CENTRALE: StackPane = contenitore che mostra un elemento alla
          volta. Il fx:id serve a MainController per sostituirne il contenuto.
-         All'avvio mostra solo un messaggio di benvenuto. -->
+         All'avvio mostra un messaggio di benvenuto con il nome di chi ha fatto l'accesso. -->
     <center>
         <StackPane fx:id="contenuto">
-            <Label text="Benvenuto in TurnoGiusto: scegli una voce dal menu."/>
+            <Label fx:id="benvenuto" text="Benvenuto in TurnoGiusto: scegli una voce dal menu."/>
         </StackPane>
     </center>
 </BorderPane>

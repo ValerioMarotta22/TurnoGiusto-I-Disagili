@@ -47,7 +47,7 @@ class DatabaseTest {
                 tabelle.add(rs.getString(1));
             }
         }
-        assertEquals(Set.of("assegnazione_turno", "contratto", "dipendente", "disponibilita", "fabbisogno", "piano", "turno"), tabelle,
+        assertEquals(Set.of("assegnazione_turno", "contratto", "dipendente", "disponibilita", "fabbisogno", "piano", "turno", "utente"), tabelle,
                 "Lo schema del database deve corrispondere a db/init/01_schema.sql");
     }
 

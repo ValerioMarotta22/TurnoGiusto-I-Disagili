@@ -17,6 +17,10 @@ class FabbisognoRepositoryTest {
 
     private final FabbisognoRepository repository = new FabbisognoRepository();
 
+    // La combinazione di prova (lavapiatti, feriale, pranzo) e' anche una riga del seed (con valore 0):
+    // il test la usa e poi la RIMETTE com'era, cosi' i dati di prova di tutti restano intatti.
+    private Fabbisogno originaleDelSeed;
+
     //PRIMA DI OGNI TEST
     @BeforeEach
     void preparaIlDatabase() throws SQLException {
@@ -27,7 +31,10 @@ class FabbisognoRepositoryTest {
             Assumptions.assumeTrue(false, "Database non raggiungibile: avvia 'docker compose up -d' per eseguire questo test");
         }
 
-        //controllo ed elimino se test precedenti hanno lasciato la riga di prova
+        //mi ricordo il valore che la riga ha nel database (se c'e'), per rimetterlo alla fine
+        originaleDelSeed = cercaFabbisognoDiProva(repository.trovaTutti());
+
+        //parto da una situazione pulita: tolgo la riga di prova
         eliminaFabbisognoDiProva();
     }
 
@@ -38,6 +45,11 @@ class FabbisognoRepositoryTest {
         //ignoro il catch perchè se il database è spento il test già è stato saltato
         try {
             eliminaFabbisognoDiProva();
+            if (originaleDelSeed != null) {
+                // la riga esisteva gia' nel seed: la rimetto con il suo valore di prima
+                repository.salva(new Fabbisogno(originaleDelSeed.getRuolo(), originaleDelSeed.getTipoGiorno(),
+                        originaleDelSeed.getServizio(), originaleDelSeed.getNumeroMinimoDipendenti()));
+            }
         } catch(SQLException e){
             //niente da fare
         }
