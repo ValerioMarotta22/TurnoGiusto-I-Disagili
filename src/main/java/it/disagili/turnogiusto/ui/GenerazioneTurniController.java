@@ -6,6 +6,7 @@ import it.disagili.turnogiusto.model.Servizio;
 import it.disagili.turnogiusto.model.Turno;
 import it.disagili.turnogiusto.service.GenerazioneTurniService;
 import it.disagili.turnogiusto.service.ValidazioneDisponibilita;
+import it.disagili.turnogiusto.service.vincoli.VerificatoreVincoliUS07;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
@@ -39,6 +40,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 
 /** Legge gli orari e mostra la bozza generata dal service, mantenendo reattiva la schermata. */
@@ -66,7 +68,8 @@ public class GenerazioneTurniController {
     private Map<Integer, String> nomiDipendenti = Map.of();
 
     public GenerazioneTurniController() {
-        this(new GenerazioneTurniService());
+        // Con i controlli di US07 collegati: senza, il generatore ignorerebbe riposi, doppi servizi e monte ore.
+        this(GenerazioneTurniService.conVincoli());
     }
 
     GenerazioneTurniController(GenerazioneTurniService servizio) {
@@ -266,9 +269,21 @@ public class GenerazioneTurniController {
         if (!esito.controlloEseguito()) {
             testo += " Monte ore e riposi da verificare.";
         } else if (!esito.violazioni().isEmpty()) {
-            testo += " " + String.join(". ", esito.violazioni());
+            testo += " " + String.join(". ", esito.violazioni().stream().map(this::conNome).toList());
         }
         mostraMessaggio(testo, !esito.violazioni().isEmpty());
+    }
+
+    /** I controlli scrivono "Dipendente 12: motivo": qui l'id diventa il nome, come nella modifica del piano. */
+    private String conNome(String violazione) {
+        Matcher prefisso = VerificatoreVincoliUS07.PREFISSO_DIPENDENTE.matcher(violazione);
+        if (prefisso.find()) {
+            String nome = nomiDipendenti.get(Integer.parseInt(prefisso.group(1)));
+            if (nome != null) {
+                return nome + ": " + violazione.substring(prefisso.end());
+            }
+        }
+        return violazione;
     }
 
     /** Raggruppa per data di inizio e poi per servizio. I gruppi con turni partono aperti. */

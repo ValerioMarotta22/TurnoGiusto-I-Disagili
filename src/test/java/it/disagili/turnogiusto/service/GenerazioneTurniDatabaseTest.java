@@ -9,6 +9,7 @@ import it.disagili.turnogiusto.model.Turno;
 import it.disagili.turnogiusto.repository.DipendenteRepository;
 import it.disagili.turnogiusto.repository.FabbisognoRepository;
 import it.disagili.turnogiusto.support.DatabaseDisponibilitaSupport;
+import it.disagili.turnogiusto.ui.GenerazioneTurniController;
 import org.junit.jupiter.api.Test;
 
 import java.sql.SQLException;
@@ -66,6 +67,32 @@ class GenerazioneTurniDatabaseTest extends DatabaseDisponibilitaSupport {
                 assertEquals(fabbisogno.getNumeroMinimoDipendenti(), trovato.postiRichiesti());
                 assertEquals(trovato.postiRichiesti(), trovato.assegnazioni().size() + trovato.postiScoperti());
             }
+        }
+    }
+
+    /**
+     * La schermata "Genera turni" deve usare i controlli di US07. Prima non li usava: il suo servizio veniva
+     * creato senza verificatore e la bozza assegnava la stessa persona a pranzo e cena nello stesso giorno.
+     */
+    @Test
+    void laSchermataDiGenerazioneApplicaIVincoli() throws Exception {
+        var campo = GenerazioneTurniController.class.getDeclaredField("servizio");
+        campo.setAccessible(true);
+        var servizio = (GenerazioneTurniService) campo.get(new GenerazioneTurniController());
+        LocalDate lunedi = LocalDate.now().with(TemporalAdjusters.next(DayOfWeek.MONDAY));
+        Map<Servizio, OrarioServizio> orari = Map.of(
+                Servizio.PRANZO, new OrarioServizio(LocalTime.of(11, 30), LocalTime.of(16, 0)),
+                Servizio.CENA, new OrarioServizio(LocalTime.of(18, 0), LocalTime.of(0, 30)));
+
+        var esito = servizio.genera(lunedi, orari, Set.of(), List.of());
+
+        assertTrue(esito.controlloEseguito(), "I controlli sui vincoli devono essere collegati");
+        assertEquals(List.of(), esito.violazioni());
+        // Regola "un solo servizio al giorno": nessuno ha pranzo e cena nello stesso giorno.
+        Set<String> giaVisti = new java.util.HashSet<>();
+        for (var assegnazione : esito.piano().assegnazioni()) {
+            String chiave = assegnazione.dipendenteId() + "@" + assegnazione.inizio().toLocalDate();
+            assertTrue(giaVisti.add(chiave), "Doppio servizio nello stesso giorno: " + chiave);
         }
     }
 
