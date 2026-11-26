@@ -20,8 +20,9 @@
             <Button fx:id="genera" text="Genera bozza" onAction="#onGenera" styleClass="principale"/>
         </HBox>
         <HBox spacing="10" alignment="CENTER_LEFT">
-            <Label fx:id="orarioPranzo"/>
-            <Label fx:id="orarioCena"/>
+            <!-- Il controller legge gli orari condivisi per ruolo, senza duplicarli nel FXML. -->
+            <Label fx:id="orarioPranzo" wrapText="true" HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+            <Label fx:id="orarioCena" wrapText="true" HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
         </HBox>
         <HBox spacing="10" alignment="CENTER_LEFT">
             <Label text="Giorni festivi" styleClass="sottotitolo" minWidth="90"/>
