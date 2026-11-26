@@ -17,7 +17,6 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
-import javafx.scene.control.ComboBox;
 import javafx.scene.control.DateCell;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
@@ -26,7 +25,11 @@ import javafx.scene.control.MenuItem;
 import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeTableCell;
 import javafx.scene.control.TreeTableColumn;
+import javafx.scene.control.TreeTableRow;
 import javafx.scene.control.TreeTableView;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.input.PickResult;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.StackPane;
@@ -96,11 +99,6 @@ class GenerazioneTurniControllerTest {
                 data.setValue(LUNEDI);
                 data.hide();
 
-                scegliOrario(radice, "inizioPranzo", "11:30");
-                scegliOrario(radice, "finePranzo", "16:00");
-                scegliOrario(radice, "inizioCena", "18:00");
-                scegliOrario(radice, "fineCena", "00:30");
-
                 FlowPane giorni = (FlowPane) radice.lookup("#festivi");
                 CheckBox domenica = (CheckBox) giorni.getChildren().getLast();
                 domenica.fire();
@@ -131,18 +129,6 @@ class GenerazioneTurniControllerTest {
         }
     }
 
-    /** Apre ogni elenco nella finestra reale e sceglie un orario disponibile. */
-    private void scegliOrario(Parent radice, String id, String orario) {
-        ComboBox<?> campo = (ComboBox<?>) radice.lookup("#" + id);
-        campo.show();
-        assertTrue(campo.isShowing());
-        int indice = campo.getItems().indexOf(orario);
-        assertTrue(indice >= 0);
-        campo.getSelectionModel().select(indice);
-        campo.hide();
-        assertEquals(orario, campo.getEditor().getText());
-    }
-
     /** Confronta le righe del piano con i fabbisogni effettivi per feriali, sabato e domenica festiva. */
     private void verificaRigheMostrate(TreeTableView<RigaPiano> tabella, List<Fabbisogno> configurati) {
         assertEquals(7, tabella.getRoot().getChildren().size());
@@ -160,12 +146,13 @@ class GenerazioneTurniControllerTest {
             assertEquals(giorno, gruppo.getValue().giorno());
             List<Turno> righe = new ArrayList<>();
             List<TreeItem<RigaPiano>> servizi = gruppo.getChildren().stream().filter(riga -> !riga.isLeaf()).toList();
-            assertEquals(List.of("Pranzo", "Cena"), servizi.stream().map(riga -> riga.getValue().testo()).toList());
+            assertEquals(List.of("Pranzo 10:00 – 16:00", "Cena 17:00 – 00:30"),
+                    servizi.stream().map(riga -> riga.getValue().testo()).toList());
             for (TreeItem<RigaPiano> servizio : servizi) {
                 for (TreeItem<RigaPiano> riga : servizio.getChildren()) {
                     Turno turno = riga.getValue().turno();
                     if (turno != null) {
-                        assertEquals(servizio.getValue().testo(), turno.servizio().toString());
+                        assertTrue(servizio.getValue().testo().startsWith(turno.servizio().toString()));
                         righe.add(turno);
                     }
                 }
@@ -178,7 +165,7 @@ class GenerazioneTurniControllerTest {
                         && riga.getRuolo() == turno.ruolo()).findFirst().orElseThrow();
                 assertEquals(fabbisogno.getNumeroMinimoDipendenti(), turno.postiRichiesti());
                 assertEquals(turno.postiRichiesti(), turno.assegnazioni().size() + turno.postiScoperti());
-                assertEquals(turno.servizio() == Servizio.CENA ? giorno.atTime(18, 0) : giorno.atTime(11, 30),
+                assertEquals(turno.servizio() == Servizio.CENA ? giorno.atTime(17, 0) : giorno.atTime(10, 0),
                         turno.inizio());
                 assertEquals(turno.servizio() == Servizio.CENA ? giorno.plusDays(1).atTime(0, 30) : giorno.atTime(16, 0),
                         turno.fine());
@@ -208,16 +195,16 @@ class GenerazioneTurniControllerTest {
                                List<AssegnazioneTurno> confinanti) {
                 assertEquals(LUNEDI, lunedi);
                 assertEquals(Set.of(LUNEDI.plusDays(6)), festivi);
-                assertEquals(LocalTime.of(2, 0), orari.get(Servizio.CENA).fine());
-                assertEquals(LocalTime.of(12, 5, 30), orari.get(Servizio.PRANZO).inizio());
+                assertEquals(new OrarioServizio(LocalTime.of(17, 0), LocalTime.of(0, 30)), orari.get(Servizio.CENA));
+                assertEquals(new OrarioServizio(LocalTime.of(10, 0), LocalTime.of(16, 0)), orari.get(Servizio.PRANZO));
                 assertEquals(List.of(), confinanti);
-                AssegnazioneTurno assegnata = new AssegnazioneTurno(8, LUNEDI.plusDays(6).atTime(18, 0),
-                        LUNEDI.plusWeeks(1).atTime(2, 0));
+                AssegnazioneTurno assegnata = new AssegnazioneTurno(8, LUNEDI.plusDays(6).atTime(17, 0),
+                        LUNEDI.plusWeeks(1).atTime(0, 30));
                 Turno turno = new Turno(Servizio.CENA, Ruolo.CAMERIERE, assegnata.inizio(), assegnata.fine(), 2, List.of(assegnata));
                 Turno scoperto = new Turno(Servizio.CENA, Ruolo.CUOCO, assegnata.inizio(), assegnata.fine(), 1, List.of());
                 AssegnazioneTurno seconda = new AssegnazioneTurno(9, assegnata.inizio().minusDays(1), assegnata.fine().minusDays(1));
                 Turno coperto = new Turno(Servizio.CENA, Ruolo.AIUTO_CUOCO, seconda.inizio(), seconda.fine(), 1, List.of(seconda));
-                AssegnazioneTurno terza = new AssegnazioneTurno(10, lunedi.plusDays(6).atTime(12, 5, 30),
+                AssegnazioneTurno terza = new AssegnazioneTurno(10, lunedi.plusDays(6).atTime(10, 0),
                         lunedi.plusDays(6).atTime(16, 0));
                 Turno pranzo = new Turno(Servizio.PRANZO, Ruolo.LAVAPIATTI, terza.inizio(), terza.fine(), 1, List.of(terza));
                 return new Esito(new PianoSettimanale(lunedi, List.of(turno, scoperto, coperto, pranzo)),
@@ -228,9 +215,6 @@ class GenerazioneTurniControllerTest {
         FXMLLoader loader = suJavaFx(() -> {
             FXMLLoader schermata = carica(servizio);
             campoData(schermata).setValue(LUNEDI);
-            // Prova sia la selezione da elenco sia un orario preciso digitato prima di generare.
-            campoOra(schermata, "fineCena").getSelectionModel().select("02:00");
-            campoOra(schermata, "inizioPranzo").getEditor().setText("12:05:30");
             FlowPane festivi = (FlowPane) schermata.getNamespace().get("festivi");
             ((CheckBox) festivi.getChildren().getLast()).setSelected(true);
             messaggio(schermata).textProperty().addListener((osservabile, prima, dopo) -> {
@@ -266,7 +250,7 @@ class GenerazioneTurniControllerTest {
             TreeTableColumn<?, ?> scoperti = (TreeTableColumn<?, ?>) loader.getNamespace().get("scopertiColonna");
             assertEquals("Giulia Rossi", assegnati.getCellData(primaRigaCena));
             assertEquals("Nessuno", assegnati.getCellData(primaRigaCena + 1));
-            assertTrue(orario.getCellData(primaRigaCena).toString().contains("30/11 02:00"));
+            assertTrue(orario.getCellData(primaRigaCena).toString().contains("30/11 00:30"));
             assertTrue(messaggio(loader).getText().contains("23/11/2026 al 29/11/2026"));
             assertTrue(messaggio(loader).getText().contains("Posti assegnati: 3. Posti scoperti: 2"));
             assertTrue(messaggio(loader).getText().contains("Monte ore e riposi da verificare"));
@@ -289,10 +273,103 @@ class GenerazioneTurniControllerTest {
             assertFalse(lunedi.isExpanded());
             lunedi.setExpanded(true);
             assertEquals("Nessun servizio previsto.", orario.getCellData(tabella.getRow(lunedi.getChildren().getFirst())));
-            assertEquals(List.of("Pranzo", "Cena"), lunedi.getChildren().stream()
+            assertEquals(List.of("Pranzo 10:00 – 16:00", "Cena 17:00 – 00:30"), lunedi.getChildren().stream()
                     .filter(riga -> !riga.isLeaf()).map(riga -> riga.getValue().testo()).toList());
             return null;
         });
+    }
+
+    @Test
+    void giorniEServiziSiApronoDaTuttaLaBarraERestanoNeriAllaSelezione() throws Exception {
+        suJavaFx(() -> {
+            FXMLLoader loader = carica(new GenerazioneTurniService());
+            Parent radice = loader.getRoot();
+            TreeTableView<RigaPiano> tabella = tabella(radice);
+            TreeItem<RigaPiano> root = new TreeItem<>();
+            TreeItem<RigaPiano> giorno = new TreeItem<>(new RigaPiano(LUNEDI, "lunedì 23/11", null));
+            TreeItem<RigaPiano> pranzo = new TreeItem<>(new RigaPiano(LUNEDI, "Pranzo 10:00 – 16:00", null));
+            TreeItem<RigaPiano> cena = new TreeItem<>(new RigaPiano(LUNEDI, "Cena 17:00 – 00:30", null));
+            Turno turno = new Turno(Servizio.PRANZO, Ruolo.CUOCO, LUNEDI.atTime(10, 0),
+                    LUNEDI.atTime(16, 0), 1, List.of());
+            pranzo.getChildren().add(new TreeItem<>(new RigaPiano(LUNEDI, "10:00 – 16:00", turno)));
+            cena.getChildren().add(new TreeItem<>(new RigaPiano(LUNEDI, "Servizio non previsto.", null)));
+            giorno.getChildren().addAll(List.of(pranzo, cena));
+            root.getChildren().add(giorno);
+            root.setExpanded(true);
+            giorno.setExpanded(true);
+            tabella.setRoot(root);
+
+            Stage finestra = new Stage();
+            finestra.setScene(radice.getScene());
+            finestra.show();
+            try {
+                for (TreeItem<RigaPiano> voce : List.of(giorno, pranzo, cena)) {
+                    for (String bersaglio : List.of("testo", "spazio", "freccia")) {
+                        // Ogni bersaglio deve sia aprire sia chiudere, anche nei servizi vuoti.
+                        for (int clic = 0; clic < 2; clic++) {
+                            radice.applyCss();
+                            radice.layout();
+                            TreeTableRow<?> riga = rigaVisibile(tabella, voce);
+                            TreeTableCell<?, ?> testo = (TreeTableCell<?, ?>) riga.lookupAll(".tree-table-cell").stream()
+                                    .filter(nodo -> nodo instanceof TreeTableCell<?, ?> cella
+                                            && cella.getTableColumn() == tabella.getTreeColumn())
+                                    .findFirst().orElseThrow();
+                            Node nodo = switch (bersaglio) {
+                                case "testo" -> testo.lookup(".text");
+                                case "freccia" -> riga.getDisclosureNode().lookup(".arrow");
+                                default -> riga.lookupAll(".tree-table-cell").stream()
+                                        .filter(cella -> cella instanceof TreeTableCell<?, ?> valore
+                                                && valore.getTableColumn() == tabella.getColumns().getLast())
+                                        .findFirst().orElseThrow();
+                            };
+                            assertNotNull(nodo, bersaglio);
+                            boolean aperta = voce.isExpanded();
+                            clicca(nodo, MouseButton.PRIMARY);
+                            assertEquals(!aperta, voce.isExpanded(), bersaglio + " su " + voce.getValue().testo());
+                            assertSame(voce, tabella.getSelectionModel().getSelectedItem());
+                            radice.applyCss();
+                            radice.layout();
+                            assertEquals(Color.BLACK, testo.getTextFill(), "Testo selezionato su " + bersaglio);
+                            assertEquals(Color.web(voce == giorno ? "#e8eff7" : "#f1f5fa"),
+                                    riga.getBackground().getFills().getFirst().getFill());
+                            genera(loader).requestFocus();
+                            radice.applyCss();
+                            assertEquals(Color.BLACK, testo.getTextFill(), "Testo selezionato senza focus");
+                        }
+                    }
+                    boolean aperta = voce.isExpanded();
+                    clicca(rigaVisibile(tabella, voce), MouseButton.SECONDARY);
+                    assertEquals(aperta, voce.isExpanded());
+                }
+                pranzo.setExpanded(true);
+                radice.applyCss();
+                radice.layout();
+                clicca(rigaVisibile(tabella, pranzo.getChildren().getFirst()), MouseButton.PRIMARY);
+                assertTrue(giorno.isExpanded());
+                assertTrue(pranzo.isExpanded());
+            } finally {
+                finestra.close();
+            }
+            return null;
+        });
+    }
+
+    private TreeTableRow<?> rigaVisibile(TreeTableView<?> tabella, TreeItem<?> voce) {
+        return tabella.lookupAll(".tree-table-row-cell").stream()
+                .filter(nodo -> nodo instanceof TreeTableRow<?> riga && riga.getTreeItem() == voce)
+                .map(nodo -> (TreeTableRow<?>) nodo).findFirst().orElseThrow();
+    }
+
+    /** Invia l'intera sequenza per rilevare anche eventuali doppi toggle della freccia nativa. */
+    private void clicca(Node nodo, MouseButton pulsante) {
+        var punto = nodo.localToScene(nodo.getBoundsInLocal().getCenterX(), nodo.getBoundsInLocal().getCenterY());
+        for (var tipo : List.of(MouseEvent.MOUSE_PRESSED, MouseEvent.MOUSE_RELEASED, MouseEvent.MOUSE_CLICKED)) {
+            boolean premuto = tipo == MouseEvent.MOUSE_PRESSED;
+            nodo.fireEvent(new MouseEvent(tipo, punto.getX(), punto.getY(), punto.getX(), punto.getY(), pulsante, 1,
+                    false, false, false, false, premuto && pulsante == MouseButton.PRIMARY, false,
+                    premuto && pulsante == MouseButton.SECONDARY, false, false, true,
+                    new PickResult(nodo, punto.getX(), punto.getY())));
+        }
     }
 
     /** Controlla il colore applicato da JavaFX alla cella che mostra il numero. */
@@ -337,23 +414,13 @@ class GenerazioneTurniControllerTest {
     }
 
     @Test
-    void mostraQualeOrarioCorreggereERifiutaGliOrariIdentici() throws Exception {
+    void mostraGliOrariFissiSenzaCampiModificabili() throws Exception {
         suJavaFx(() -> {
             FXMLLoader loader = carica(new GenerazioneTurniService());
-            ComboBox<String> finePranzo = campoOra(loader, "finePranzo");
-            assertTrue(finePranzo.getItems().contains("15:15"));
-            assertEquals("11:30", campoOra(loader, "inizioPranzo").getEditor().getText());
-            assertEquals("16:00", finePranzo.getEditor().getText());
-            assertEquals("18:00", campoOra(loader, "inizioCena").getEditor().getText());
-            assertEquals("00:30", campoOra(loader, "fineCena").getEditor().getText());
-            finePranzo.getEditor().setText("25:10");
-            genera(loader).fire();
-            assertTrue(messaggio(loader).getText().startsWith("Fine pranzo"));
-
-            finePranzo.getSelectionModel().select("11:30");
-            genera(loader).fire();
-            assertTrue(messaggio(loader).getText().contains("devono essere diversi"));
-            assertFalse(genera(loader).isDisabled());
+            Parent radice = loader.getRoot();
+            assertEquals("Pranzo 10:00 – 16:00", ((Label) radice.lookup("#orarioPranzo")).getText());
+            assertEquals("Cena 17:00 – 00:30", ((Label) radice.lookup("#orarioCena")).getText());
+            assertTrue(radice.lookupAll(".combo-box").isEmpty());
             return null;
         });
     }
@@ -395,15 +462,10 @@ class GenerazioneTurniControllerTest {
         FXMLLoader loader = new FXMLLoader(getClass().getResource("generazione-turni-view.fxml"));
         loader.setControllerFactory(classe -> new GenerazioneTurniController(servizio));
         Parent radice = loader.load();
-        // Con una Scene i controlli editabili si comportano come nella finestra reale.
+        // Con una Scene JavaFX applica gli stili e crea le celle della tabella.
         new Scene(radice, 900, 720);
         radice.applyCss();
         return loader;
-    }
-
-    @SuppressWarnings("unchecked")
-    private ComboBox<String> campoOra(FXMLLoader loader, String id) {
-        return (ComboBox<String>) loader.getNamespace().get(id);
     }
 
     private DatePicker campoData(FXMLLoader loader) {

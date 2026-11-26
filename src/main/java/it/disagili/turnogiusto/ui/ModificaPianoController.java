@@ -330,9 +330,10 @@ public class ModificaPianoController {
             statoControlli.setText("I controlli sulle regole non sono stati eseguiti: l'elenco vuoto "
                     + "NON vuol dire che il piano sia a posto.");
         } else if (esito.violazioni().isEmpty()) {
-            statoControlli.setText("Nessuna violazione: il piano rispetta le regole controllate.");
+            statoControlli.setText("Nessun avviso: il piano rispetta le regole e copre il fabbisogno.");
         } else {
-            statoControlli.setText(esito.violazioni().size() + " violazione/i. Puoi salvare lo stesso: "
+            // L'elenco contiene sia le regole non rispettate sia i posti del fabbisogno rimasti scoperti.
+            statoControlli.setText(esito.violazioni().size() + " avviso/i. Puoi salvare lo stesso: "
                     + "la decisione è del titolare.");
         }
     }

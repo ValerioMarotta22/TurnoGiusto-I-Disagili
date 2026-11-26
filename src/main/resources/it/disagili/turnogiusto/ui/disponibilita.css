@@ -10,3 +10,16 @@
 .list-cell { -fx-padding: 10; }
 .fasce-disponibilita, .fasce-disponibilita > .viewport { -fx-background-color: transparent; }
 .fasce-disponibilita { -fx-background-insets: 0; -fx-padding: 0; }
+
+/* Le intestazioni del piano restano leggibili anche selezionate e con il focus. */
+.piano-generato .tree-table-row-cell:giorno-piano { -fx-background-color: #e8eff7; }
+.piano-generato .tree-table-row-cell:servizio-piano { -fx-background-color: #f1f5fa; }
+.piano-generato .tree-table-row-cell:giorno-piano,
+.piano-generato .tree-table-row-cell:servizio-piano {
+    -fx-font-weight: bold;
+    -fx-cursor: hand;
+}
+.piano-generato .tree-table-row-cell:giorno-piano .tree-table-cell,
+.piano-generato .tree-table-row-cell:servizio-piano .tree-table-cell { -fx-text-fill: black; }
+.piano-generato .tree-table-row-cell:giorno-piano .tree-disclosure-node > .arrow,
+.piano-generato .tree-table-row-cell:servizio-piano .tree-disclosure-node > .arrow { -fx-background-color: black; }
