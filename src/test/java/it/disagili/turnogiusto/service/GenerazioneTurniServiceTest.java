@@ -15,6 +15,7 @@ import it.disagili.turnogiusto.model.Turno;
 import it.disagili.turnogiusto.repository.DipendenteRepository;
 import it.disagili.turnogiusto.repository.DisponibilitaRepository;
 import it.disagili.turnogiusto.repository.FabbisognoRepository;
+import it.disagili.turnogiusto.service.vincoli.VerificatoreVincoliUS07;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -169,6 +170,97 @@ class GenerazioneTurniServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.genera(LUNEDI.plusDays(1), ORARI, Set.of(), List.of()));
         assertThrows(IllegalArgumentException.class, () -> service.genera(LUNEDI, Map.of(), Set.of(), List.of()));
         assertThrows(IllegalArgumentException.class, () -> service.genera(LUNEDI, ORARI, Set.of(LUNEDI.minusDays(1)), List.of()));
+    }
+
+    @Test
+    void recuperaLaDomenicaRiassegnandoUnTurnoPrecedenteConDueFestivi() throws SQLException {
+        Dipendente disponibile = fullTime(1);
+        disponibile.getContratto().setOreSettimanali(40);
+        Dipendente soloLunedi = persona(2, Ruolo.CAMERIERE, TipoContratto.FULL_TIME, LUNEDI, LUNEDI);
+        var richieste = List.of(fabbisogno(TipoGiorno.FERIALE, Servizio.PRANZO, 1),
+                fabbisogno(TipoGiorno.FESTIVO, Servizio.PRANZO, 1),
+                fabbisogno(TipoGiorno.WEEKEND, Servizio.PRANZO, 1));
+        var esito = service(richieste, List.of(disponibile, soloLunedi), Map.of(), new VerificatoreVincoliUS07())
+                .genera(LUNEDI, ORARI, Set.of(LUNEDI.plusDays(1), LUNEDI.plusDays(3)), List.of());
+
+        assertEquals(0, esito.piano().postiScoperti());
+        assertEquals(2, esito.piano().turni().getFirst().assegnazioni().getFirst().dipendenteId());
+        assertEquals(1, esito.piano().turni().getLast().assegnazioni().getFirst().dipendenteId());
+        assertTrue(esito.violazioni().isEmpty());
+    }
+
+    @Test
+    void usaAncheIlPartTimePerLiberareOreDelFullTime() throws SQLException {
+        Dipendente primo = fullTime(1);
+        Dipendente secondo = fullTime(2);
+        primo.getContratto().setOreSettimanali(3);
+        secondo.getContratto().setOreSettimanali(6);
+        Dipendente partTime = persona(3, Ruolo.CAMERIERE, TipoContratto.PART_TIME, LUNEDI, null);
+        partTime.getContratto().setOreSettimanali(3);
+        var esito = service(List.of(fabbisogno(TipoGiorno.FESTIVO, Servizio.PRANZO, 2)),
+                List.of(primo, secondo, partTime), Map.of(3, List.of(fascia(3, DayOfWeek.MONDAY, 12, 15))),
+                new VerificatoreVincoliUS07()).genera(LUNEDI, ORARI, Set.of(LUNEDI, LUNEDI.plusDays(1)), List.of());
+
+        assertEquals(0, esito.piano().postiScoperti());
+        for (Dipendente persona : List.of(primo, secondo, partTime)) {
+            long minuti = esito.piano().assegnazioni().stream().filter(a -> a.dipendenteId() == persona.getId())
+                    .mapToLong(a -> java.time.Duration.between(a.inizio(), a.fine()).toMinutes()).sum();
+            assertEquals(persona.getContratto().getOreSettimanali() * 60L, minuti);
+        }
+        assertTrue(esito.violazioni().isEmpty());
+    }
+
+    @Test
+    void aParitaDiCoperturaUsaPiuOreSenzaSuperareIlMassimo() throws SQLException {
+        Dipendente persona = fullTime(1);
+        persona.getContratto().setOreSettimanali(8);
+        var esito = service(List.of(fabbisogno(TipoGiorno.FESTIVO, Servizio.PRANZO, 1),
+                        fabbisogno(TipoGiorno.FESTIVO, Servizio.CENA, 1)), List.of(persona), Map.of(),
+                new VerificatoreVincoliUS07()).genera(LUNEDI, ORARI, Set.of(LUNEDI), List.of());
+        assertEquals(1, esito.piano().postiScoperti());
+        assertEquals(Servizio.CENA, esito.piano().turni().stream()
+                .filter(t -> !t.assegnazioni().isEmpty()).findFirst().orElseThrow().servizio());
+        assertTrue(esito.violazioni().isEmpty());
+    }
+
+    @Test
+    void conDueFestiviFerialiUsaTutteLePresenzeDisponibiliDeiCamerieri() throws SQLException {
+        List<Dipendente> persone = new ArrayList<>();
+        for (int id : List.of(5, 12, 13, 14, 15)) {
+            Dipendente persona = fullTime(id);
+            persona.getContratto().setOreSettimanali(40);
+            persone.add(persona);
+        }
+        for (int id : List.of(4, 16, 17)) {
+            persone.add(persona(id, Ruolo.CAMERIERE, TipoContratto.PART_TIME, LUNEDI, null));
+        }
+        var finestre = Map.of(4, List.of(fascia(4, DayOfWeek.FRIDAY, 18, 23),
+                        fascia(4, DayOfWeek.SATURDAY, 12, 15), fascia(4, DayOfWeek.SATURDAY, 18, 2)),
+                16, List.of(fascia(16, DayOfWeek.FRIDAY, 18, 1), fascia(16, DayOfWeek.SATURDAY, 18, 1),
+                        fascia(16, DayOfWeek.SUNDAY, 18, 1)));
+        var richieste = List.of(fabbisogno(TipoGiorno.FERIALE, Servizio.PRANZO, 2),
+                fabbisogno(TipoGiorno.FERIALE, Servizio.CENA, 3),
+                fabbisogno(TipoGiorno.WEEKEND, Servizio.PRANZO, 2),
+                fabbisogno(TipoGiorno.WEEKEND, Servizio.CENA, 4),
+                fabbisogno(TipoGiorno.FESTIVO, Servizio.PRANZO, 2),
+                fabbisogno(TipoGiorno.FESTIVO, Servizio.CENA, 5));
+        var generatore = service(richieste, persone, finestre, new VerificatoreVincoliUS07());
+        for (int primo = 0; primo < 5; primo++) {
+            for (int secondo = primo + 1; secondo < 5; secondo++) {
+                Set<LocalDate> festivi = Set.of(LUNEDI.plusDays(primo), LUNEDI.plusDays(secondo));
+                var esito = generatore.generaPerRuolo(LUNEDI, festivi, List.of());
+                // 41 posti; 5 full-time x 6 giorni + Sara sabato + Beatrice ven/sab/dom = 34.
+                assertEquals(7, esito.piano().postiScoperti(), "Festivi " + festivi);
+                assertTrue(esito.violazioni().isEmpty());
+                for (Dipendente persona : persone) {
+                    long minuti = esito.piano().assegnazioni().stream().filter(a -> a.dipendenteId() == persona.getId())
+                            .mapToLong(a -> java.time.Duration.between(a.inizio(), a.fine()).toMinutes()).sum();
+                    assertTrue(minuti <= persona.getContratto().getOreSettimanali() * 60L);
+                }
+                assertFalse(esito.piano().assegnazioni().stream().anyMatch(a -> a.dipendenteId() == 4
+                        && a.inizio().getDayOfWeek() == DayOfWeek.SUNDAY));
+            }
+        }
     }
 
     /** I repository di prova restituiscono gli stessi dati che arrivano normalmente dal database. */

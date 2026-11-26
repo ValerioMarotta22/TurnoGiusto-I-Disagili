@@ -1,11 +1,10 @@
 -- =====================================================================
 -- Dati di prova SOLO per lo sviluppo (nomi inventati).
--- Il fabbisogno del sabato sera e' quello del "caso concreto" del testo
--- del progetto: 2 cuochi, 1 aiuto, 5 camerieri, 2 lavapiatti.
+-- La cena del weekend richiede 4 camerieri; i festivi ne richiedono 5.
 --
 -- 18 dipendenti: 8 camerieri, 4 cuochi, 4 aiuto cuochi, 2 lavapiatti.
--- Sono abbastanza per coprire il weekend: cosi' la bozza dei turni (US06A)
--- non ha posti scoperti e si puo' provare la modifica del piano (US06B).
+-- Le disponibilita sono volutamente incomplete: la generazione puo lasciare
+-- scoperture quando ore, riposi e fasce non consentono altre assegnazioni.
 -- =====================================================================
 SET NAMES utf8mb4;
 
@@ -80,8 +79,8 @@ INSERT INTO disponibilita (dipendente_id, giorno_settimana, ora_inizio, ora_fine
 -- FABBISOGNO STANDARD: quante persone servono per tipo di giorno, servizio e ruolo.
 -- 24 righe = 3 tipi di giorno (feriale, weekend, festivo) x 2 servizi (pranzo, cena) x 4 ruoli.
 -- Le quantita' sono pensate sul personale in elenco (4 cuochi, 4 aiuto cuochi, 8 camerieri, 2 lavapiatti):
---   - la cena del weekend (2 cuochi, 1 aiuto, 5 camerieri, 2 lavapiatti) e' il "caso concreto" del testo;
---   - i festivi hanno gli stessi numeri del weekend;
+--   - la cena del weekend richiede 2 cuochi, 1 aiuto, 4 camerieri, 2 lavapiatti;
+--   - i festivi richiedono 5 camerieri a cena, gli altri numeri coincidono col weekend;
 --   - a pranzo non servono lavapiatti (0): ce ne sono solo 2 e servono entrambi alla cena;
 --   - la stessa persona non puo' fare pranzo e cena di seguito, quindi i numeri tengono conto dei turni
 --     che si escludono a vicenda.
@@ -104,9 +103,9 @@ INSERT INTO fabbisogno (ruolo, tipo_giorno, servizio, numero_minimo_dipendenti) 
     ('LAVAPIATTI',  'WEEKEND', 'PRANZO', 0),
     ('CUOCO',       'WEEKEND', 'CENA',   2),
     ('AIUTO_CUOCO', 'WEEKEND', 'CENA',   1),
-    ('CAMERIERE',   'WEEKEND', 'CENA',   5),
+    ('CAMERIERE',   'WEEKEND', 'CENA',   4),
     ('LAVAPIATTI',  'WEEKEND', 'CENA',   2),
-    -- giorni FESTIVI (come il weekend)
+    -- giorni FESTIVI (un cameriere in piu a cena rispetto al weekend)
     ('CUOCO',       'FESTIVO', 'PRANZO', 1),
     ('AIUTO_CUOCO', 'FESTIVO', 'PRANZO', 1),
     ('CAMERIERE',   'FESTIVO', 'PRANZO', 2),
