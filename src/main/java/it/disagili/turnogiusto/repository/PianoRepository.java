@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Salva e rilegge il piano settimanale (US-06B). Qui c'e' SOLO SQL e conversione
@@ -52,8 +54,23 @@ public class PianoRepository {
     // ======================================================================
     // "throws SQLException": se qualcosa va storto l'errore sale al chiamante (service/controller),
     // che decide cosa mostrare all'utente.
+    // Salva il piano tenendo i festivi gia' salvati per quella settimana (se ce n'erano).
     public void salva(PianoSettimanale piano) throws SQLException {
         Objects.requireNonNull(piano, "Il piano è obbligatorio");
+        salva(piano, trovaFestivi(piano.inizioSettimana()));
+    }
+
+    // Salva il piano INSIEME ai giorni segnati come festivi dal titolare (anche nessuno).
+    // I festivi devono essere giorni di quella settimana.
+    public void salva(PianoSettimanale piano, Set<LocalDate> festivi) throws SQLException {
+        Objects.requireNonNull(piano, "Il piano è obbligatorio");
+        Objects.requireNonNull(festivi, "I festivi sono obbligatori (anche vuoti)");
+        LocalDate lunedi = piano.inizioSettimana();
+        for (LocalDate festivo : festivi) {
+            if (festivo.isBefore(lunedi) || !festivo.isBefore(lunedi.plusWeeks(1))) {
+                throw new IllegalArgumentException("Il festivo " + festivo + " non appartiene alla settimana del piano");
+            }
+        }
 
         try (Connection connessione = connessioni.apri()) {
             // PASSO 1 - TRANSAZIONE. Con autoCommit attivo ogni INSERT sarebbe salvato subito:
@@ -79,6 +96,9 @@ public class PianoRepository {
                     inserisciAssegnazioni(connessione, turnoId, turno.assegnazioni());
                 }
 
+                // PASSO 4b - i giorni festivi della settimana (quelli vecchi sono spariti con il DELETE del piano).
+                inserisciFestivi(connessione, pianoId, festivi);
+
                 // PASSO 5 - tutto e' andato bene: rendo definitivo.
                 connessione.commit();
             } catch (SQLException | RuntimeException errore) {
@@ -99,6 +119,41 @@ public class PianoRepository {
             inserisci.executeUpdate();
             return idGenerato(inserisci);
         }
+    }
+
+    private void inserisciFestivi(Connection connessione, int pianoId, Set<LocalDate> festivi) throws SQLException {
+        try (PreparedStatement inserisci = connessione.prepareStatement(
+                "INSERT INTO piano_festivo (piano_id, giorno) VALUES (?, ?)")) {
+            for (LocalDate festivo : festivi) {
+                inserisci.setInt(1, pianoId);
+                inserisci.setObject(2, festivo);
+                inserisci.addBatch();
+            }
+            inserisci.executeBatch();
+        }
+    }
+
+    // ======================================================================
+    // RILEGGERE I FESTIVI DI UNA SETTIMANA (vuoto se il piano non c'e' o non ha festivi)
+    // ======================================================================
+    public Set<LocalDate> trovaFestivi(LocalDate lunedi) throws SQLException {
+        Objects.requireNonNull(lunedi, "Il lunedì è obbligatorio");
+        Set<LocalDate> festivi = new TreeSet<>(); // TreeSet: in ordine di data
+        try (Connection connessione = connessioni.apri();
+             PreparedStatement leggi = connessione.prepareStatement("""
+                     SELECT f.giorno FROM piano_festivo f
+                     JOIN piano p ON p.id = f.piano_id
+                     WHERE p.inizio_settimana = ?
+                     ORDER BY f.giorno
+                     """)) {
+            leggi.setObject(1, lunedi);
+            try (ResultSet rs = leggi.executeQuery()) {
+                while (rs.next()) {
+                    festivi.add(rs.getObject("giorno", LocalDate.class));
+                }
+            }
+        }
+        return festivi;
     }
 
     private int inserisciTurno(Connection connessione, int pianoId, Turno turno) throws SQLException {

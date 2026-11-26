@@ -13,6 +13,7 @@ import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
@@ -20,6 +21,7 @@ import javafx.scene.control.ListView;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.VBox;
 import javafx.util.converter.LocalDateStringConverter;
 
@@ -32,6 +34,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 
@@ -57,6 +61,8 @@ public class ModificaPianoController {
     @FXML private Button carica;
     @FXML private Button genera;
     @FXML private Label intervallo;
+    @FXML private FlowPane festivi;          // una casella per giorno: quali giorni sono festivi
+    @FXML private Label notaFestivi;
     @FXML private TableView<Turno> tabella;
     @FXML private TableColumn<Turno, String> giornoColonna;
     @FXML private TableColumn<Turno, String> servizioColonna;
@@ -179,11 +185,15 @@ public class ModificaPianoController {
 
             Optional<PianoSettimanale> salvato = servizio.carica(lunedi);
             if (salvato.isPresent()) {
+                // I festivi sono quelli salvati con il piano: il fabbisogno della bozza e' gia' stato
+                // calcolato con loro, quindi qui si mostrano ma non si cambiano.
+                preparaFestivi(servizio.festivi(lunedi), false);
                 mostra(salvato.get());
                 mostraEsito(servizio.verifica(salvato.get()));
                 info(testo(prefisso, "Piano caricato. Scegli una riga per modificarlo."));
             } else {
-                // Nessun piano salvato: si puo' generarne uno di base.
+                // Nessun piano salvato: si puo' generarne uno di base, scegliendo prima i festivi.
+                preparaFestivi(Set.of(), true);
                 corrente = null;
                 tabella.getItems().clear();
                 violazioni.getItems().clear();
@@ -206,7 +216,10 @@ public class ModificaPianoController {
     @FXML
     private void onGenera() {
         try {
-            ModificaPianoService.Esito esito = servizio.generaPiano(lunedi);
+            // I giorni spuntati usano il fabbisogno FESTIVO; dopo la generazione non si cambiano piu'
+            // (la bozza e' stata calcolata con loro). Per cambiarli: "Annulla modifiche" e rigenera.
+            ModificaPianoService.Esito esito = servizio.generaPiano(lunedi, festiviScelti());
+            abilitaFestivi(false);
             modificato = true; // la bozza non e' ancora salvata
             mostra(esito.piano());
             mostraEsito(esito);
@@ -283,13 +296,48 @@ public class ModificaPianoController {
             return;
         }
         try {
-            servizio.salva(corrente);
+            servizio.salva(corrente, festiviScelti()); // i festivi si salvano insieme al piano
             modificato = false;
             info("Piano salvato. Se chiudi e riapri la schermata lo ritrovi com'è adesso.");
         } catch (SQLException eccezione) {
             errore(ERRORE_DATABASE);
         }
         aggiornaPulsanti();
+    }
+
+    // ======================================================================
+    // GIORNI FESTIVI DELLA SETTIMANA
+    // ======================================================================
+    // Crea una casella per ogni giorno (lun 30/11 ... dom 06/12) e spunta quelli indicati.
+    private void preparaFestivi(Set<LocalDate> selezionati, boolean modificabili) {
+        festivi.getChildren().clear();
+        for (int i = 0; i < 7; i++) {
+            LocalDate giorno = lunedi.plusDays(i);
+            CheckBox casella = new CheckBox(giorno.format(GIORNO));
+            casella.setUserData(giorno);
+            casella.setSelected(selezionati.contains(giorno));
+            festivi.getChildren().add(casella);
+        }
+        abilitaFestivi(modificabili);
+    }
+
+    private void abilitaFestivi(boolean modificabili) {
+        festivi.getChildren().forEach(nodo -> nodo.setDisable(!modificabili));
+        notaFestivi.setText(modificabili
+                ? "Spunta i festivi prima di generare: in quei giorni vale il fabbisogno festivo."
+                : "Festivi del piano (si scelgono quando si genera la bozza).");
+    }
+
+    // I giorni spuntati, in ordine di data.
+    private Set<LocalDate> festiviScelti() {
+        Set<LocalDate> scelti = new TreeSet<>();
+        for (var nodo : festivi.getChildren()) {
+            CheckBox casella = (CheckBox) nodo;
+            if (casella.isSelected()) {
+                scelti.add((LocalDate) casella.getUserData());
+            }
+        }
+        return scelti;
     }
 
     @FXML

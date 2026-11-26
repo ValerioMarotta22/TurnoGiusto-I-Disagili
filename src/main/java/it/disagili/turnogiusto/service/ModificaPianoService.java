@@ -107,6 +107,16 @@ public class ModificaPianoService {
         piani.salva(piano);
     }
 
+    // scrive il piano insieme ai giorni segnati come festivi (cosi' alla riapertura si ritrovano)
+    public void salva(PianoSettimanale piano, Set<LocalDate> festivi) throws SQLException {
+        piani.salva(piano, festivi);
+    }
+
+    // i festivi salvati con il piano di quella settimana (vuoto se non ce ne sono)
+    public Set<LocalDate> festivi(LocalDate lunedi) throws SQLException {
+        return piani.trovaFestivi(lunedi);
+    }
+
     // ======================================================================
     // PIANO DI BASE E NOMI (servono alla schermata)
     // ======================================================================
@@ -115,11 +125,17 @@ public class ModificaPianoService {
     // condivisi per ruolo, e lo controlla. NON lo salva: lo salva il titolare dopo la revisione.
     // Le sostituzioni nei piani già esistenti conservano invece gli orari della riga.
     public Esito generaPiano(LocalDate lunedi) throws SQLException {
+        return generaPiano(lunedi, Set.of());
+    }
+
+    // Come sopra, ma con i giorni festivi scelti dal titolare: per quei giorni la generazione
+    // usa il fabbisogno FESTIVO (prima questa schermata passava sempre "nessun festivo").
+    public Esito generaPiano(LocalDate lunedi, Set<LocalDate> festivi) throws SQLException {
         if (generazione == null) {
             throw new IllegalStateException("La generazione dei piani non è collegata a questo service.");
         }
         List<AssegnazioneTurno> confinanti = piani.trovaConfinanti(lunedi);
-        PianoSettimanale piano = generazione.generaPerRuolo(lunedi, Set.of(), confinanti).piano();
+        PianoSettimanale piano = generazione.generaPerRuolo(lunedi, festivi, confinanti).piano();
         return verifica(piano);
     }
 
