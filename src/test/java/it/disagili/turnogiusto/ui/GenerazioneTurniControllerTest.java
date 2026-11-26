@@ -2,7 +2,6 @@ package it.disagili.turnogiusto.ui;
 
 import it.disagili.turnogiusto.model.AssegnazioneTurno;
 import it.disagili.turnogiusto.model.Fabbisogno;
-import it.disagili.turnogiusto.model.OrarioServizio;
 import it.disagili.turnogiusto.model.PianoSettimanale;
 import it.disagili.turnogiusto.model.Ruolo;
 import it.disagili.turnogiusto.model.Servizio;
@@ -41,7 +40,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.sql.SQLException;
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -146,7 +144,7 @@ class GenerazioneTurniControllerTest {
             assertEquals(giorno, gruppo.getValue().giorno());
             List<Turno> righe = new ArrayList<>();
             List<TreeItem<RigaPiano>> servizi = gruppo.getChildren().stream().filter(riga -> !riga.isLeaf()).toList();
-            assertEquals(List.of("Pranzo 10:00 – 16:00", "Cena 17:00 – 00:30"),
+            assertEquals(List.of("Pranzo", "Cena"),
                     servizi.stream().map(riga -> riga.getValue().testo()).toList());
             for (TreeItem<RigaPiano> servizio : servizi) {
                 for (TreeItem<RigaPiano> riga : servizio.getChildren()) {
@@ -165,10 +163,9 @@ class GenerazioneTurniControllerTest {
                         && riga.getRuolo() == turno.ruolo()).findFirst().orElseThrow();
                 assertEquals(fabbisogno.getNumeroMinimoDipendenti(), turno.postiRichiesti());
                 assertEquals(turno.postiRichiesti(), turno.assegnazioni().size() + turno.postiScoperti());
-                assertEquals(turno.servizio() == Servizio.CENA ? giorno.atTime(17, 0) : giorno.atTime(10, 0),
-                        turno.inizio());
-                assertEquals(turno.servizio() == Servizio.CENA ? giorno.plusDays(1).atTime(0, 30) : giorno.atTime(16, 0),
-                        turno.fine());
+                var fascia = it.disagili.turnogiusto.model.OrariTurni.per(turno.ruolo(), turno.servizio());
+                assertEquals(giorno.atTime(fascia.inizio()), turno.inizio());
+                assertEquals(fascia.fineDelServizio(giorno), turno.fine());
             }
         }
     }
@@ -191,12 +188,10 @@ class GenerazioneTurniControllerTest {
     void inviaDateOrariEFestiviEMostraAssegnatiScopertureEStatoDiBozza() throws Exception {
         GenerazioneTurniService servizio = new GenerazioneTurniService() {
             @Override
-            public Esito genera(LocalDate lunedi, Map<Servizio, OrarioServizio> orari, Set<LocalDate> festivi,
+            public Esito generaPerRuolo(LocalDate lunedi, Set<LocalDate> festivi,
                                List<AssegnazioneTurno> confinanti) {
                 assertEquals(LUNEDI, lunedi);
                 assertEquals(Set.of(LUNEDI.plusDays(6)), festivi);
-                assertEquals(new OrarioServizio(LocalTime.of(17, 0), LocalTime.of(0, 30)), orari.get(Servizio.CENA));
-                assertEquals(new OrarioServizio(LocalTime.of(10, 0), LocalTime.of(16, 0)), orari.get(Servizio.PRANZO));
                 assertEquals(List.of(), confinanti);
                 AssegnazioneTurno assegnata = new AssegnazioneTurno(8, LUNEDI.plusDays(6).atTime(17, 0),
                         LUNEDI.plusWeeks(1).atTime(0, 30));
@@ -273,7 +268,7 @@ class GenerazioneTurniControllerTest {
             assertFalse(lunedi.isExpanded());
             lunedi.setExpanded(true);
             assertEquals("Nessun servizio previsto.", orario.getCellData(tabella.getRow(lunedi.getChildren().getFirst())));
-            assertEquals(List.of("Pranzo 10:00 – 16:00", "Cena 17:00 – 00:30"), lunedi.getChildren().stream()
+            assertEquals(List.of("Pranzo", "Cena"), lunedi.getChildren().stream()
                     .filter(riga -> !riga.isLeaf()).map(riga -> riga.getValue().testo()).toList());
             return null;
         });
@@ -418,8 +413,15 @@ class GenerazioneTurniControllerTest {
         suJavaFx(() -> {
             FXMLLoader loader = carica(new GenerazioneTurniService());
             Parent radice = loader.getRoot();
-            assertEquals("Pranzo 10:00 – 16:00", ((Label) radice.lookup("#orarioPranzo")).getText());
-            assertEquals("Cena 17:00 – 00:30", ((Label) radice.lookup("#orarioCena")).getText());
+            // Valori espliciti: il riepilogo deve mostrare tutte le fasce concordate.
+            assertEquals("Pranzo\nCuoco: 10:00 – 15:30\nAiuto cuoco: 10:00 – 15:30"
+                    + "\nCameriere: 11:30 – 16:00\nLavapiatti: 12:00 – 16:00",
+                    ((Label) radice.lookup("#orarioPranzo")).getText());
+            assertEquals("Cena\nCuoco: 17:00 – 00:00 (giorno dopo)"
+                    + "\nAiuto cuoco: 17:00 – 00:00 (giorno dopo)"
+                    + "\nCameriere: 18:00 – 00:30 (giorno dopo)"
+                    + "\nLavapiatti: 19:00 – 00:30 (giorno dopo)",
+                    ((Label) radice.lookup("#orarioCena")).getText());
             assertTrue(radice.lookupAll(".combo-box").isEmpty());
             return null;
         });
@@ -442,7 +444,7 @@ class GenerazioneTurniControllerTest {
         FXMLLoader loader = suJavaFx(() -> {
             FXMLLoader schermata = carica(new GenerazioneTurniService() {
                 @Override
-                public Esito genera(LocalDate lunedi, Map<Servizio, OrarioServizio> orari, Set<LocalDate> festivi,
+                public Esito generaPerRuolo(LocalDate lunedi, Set<LocalDate> festivi,
                                    List<AssegnazioneTurno> confinanti) throws SQLException {
                     throw new SQLException("Database di prova spento");
                 }

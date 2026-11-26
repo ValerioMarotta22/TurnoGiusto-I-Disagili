@@ -1,6 +1,8 @@
 package it.disagili.turnogiusto.ui;
 
 import it.disagili.turnogiusto.model.OrarioServizio;
+import it.disagili.turnogiusto.model.OrariTurni;
+import it.disagili.turnogiusto.model.Ruolo;
 import it.disagili.turnogiusto.model.PianoSettimanale;
 import it.disagili.turnogiusto.model.Servizio;
 import it.disagili.turnogiusto.model.Turno;
@@ -30,7 +32,6 @@ import java.sql.SQLException;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
 import java.util.HashSet;
@@ -47,9 +48,6 @@ public class GenerazioneTurniController {
     private static final DateTimeFormatter GIORNO = DateTimeFormatter.ofPattern("EEE dd/MM", Locale.ITALIAN);
     private static final DateTimeFormatter GIORNO_COMPLETO = DateTimeFormatter.ofPattern("EEEE dd/MM", Locale.ITALIAN);
     private static final DateTimeFormatter DATA = DateTimeFormatter.ofPattern("dd/MM/uuuu", Locale.ITALIAN);
-    private static final Map<Servizio, OrarioServizio> ORARI_SERVIZI = Map.of(
-            Servizio.PRANZO, new OrarioServizio(LocalTime.of(10, 0), LocalTime.of(16, 0)),
-            Servizio.CENA, new OrarioServizio(LocalTime.of(17, 0), LocalTime.of(0, 30)));
     private static final PseudoClass GIORNO_PIANO = PseudoClass.getPseudoClass("giorno-piano");
     private static final PseudoClass SERVIZIO_PIANO = PseudoClass.getPseudoClass("servizio-piano");
 
@@ -93,8 +91,8 @@ public class GenerazioneTurniController {
         // Le etichette dei festivi seguono le date della settimana selezionata.
         settimana.valueProperty().addListener((osservabile, prima, dopo) -> cambiaSettimana(dopo));
         cambiaSettimana(settimana.getValue());
-        orarioPranzo.setText(testoServizio(Servizio.PRANZO));
-        orarioCena.setText(testoServizio(Servizio.CENA));
+        orarioPranzo.setText(riepilogoOrari(Servizio.PRANZO));
+        orarioCena.setText(riepilogoOrari(Servizio.CENA));
         configuraTabella();
     }
 
@@ -175,8 +173,20 @@ public class GenerazioneTurniController {
     }
 
     private String testoServizio(Servizio servizio) {
-        OrarioServizio orario = ORARI_SERVIZI.get(servizio);
-        return servizio + " " + orario.inizio() + " – " + orario.fine();
+        // L'intestazione raggruppa ruoli con orari diversi: gli intervalli effettivi
+        // rimangono visibili nelle righe dei singoli turni.
+        return servizio.toString();
+    }
+
+    private String riepilogoOrari(Servizio servizio) {
+        StringBuilder testo = new StringBuilder(servizio.toString());
+        for (Ruolo ruolo : Ruolo.values()) {
+            OrarioServizio orario = OrariTurni.per(ruolo, servizio);
+            testo.append("\n").append(ruolo).append(": ").append(orario.inizio())
+                    .append(" – ").append(orario.fine());
+            if (orario.fine().isBefore(orario.inizio())) testo.append(" (giorno dopo)");
+        }
+        return testo.toString();
     }
 
     /** Quando cambia la settimana, le scelte dei festivi della precedente vengono azzerate. */
@@ -212,7 +222,7 @@ public class GenerazioneTurniController {
             @Override
             protected GenerazioneTurniService.Esito call() throws SQLException {
                 // La persistenza della US06B fornirà i turni delle settimane confinanti.
-                return servizio.genera(lunedi, ORARI_SERVIZI, giorniFestivi, List.of());
+                return servizio.generaPerRuolo(lunedi, giorniFestivi, List.of());
             }
         };
         lavoro.setOnSucceeded(evento -> {
