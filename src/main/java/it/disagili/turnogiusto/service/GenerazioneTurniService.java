@@ -6,6 +6,8 @@ import it.disagili.turnogiusto.model.Dipendente;
 import it.disagili.turnogiusto.model.Disponibilita;
 import it.disagili.turnogiusto.model.Fabbisogno;
 import it.disagili.turnogiusto.model.OrarioServizio;
+import it.disagili.turnogiusto.model.OrariTurni;
+import java.util.function.Function;
 import it.disagili.turnogiusto.model.PianoSettimanale;
 import it.disagili.turnogiusto.model.Servizio;
 import it.disagili.turnogiusto.model.TipoContratto;
@@ -81,18 +83,32 @@ public class GenerazioneTurniService {
                        List<AssegnazioneTurno> confinanti) throws SQLException {
         PianoSettimanale.verificaInizioSettimana(lunedi);
         Map<Servizio, OrarioServizio> orariRichiesti = Map.copyOf(orari);
-        Set<LocalDate> giorniFestivi = Set.copyOf(festivi);
-        List<AssegnazioneTurno> storico = copiaConfinanti(lunedi, confinanti);
         if (orariRichiesti.size() != Servizio.values().length) {
             throw new IllegalArgumentException("Indica gli orari di pranzo e cena.");
         }
+        // Compatibilità per i chiamanti che forniscono ancora orari espliciti.
+        return generaConOrari(lunedi, f -> orariRichiesti.get(f.getServizio()), festivi, confinanti);
+    }
+
+    /** Nuove bozze con gli orari condivisi per ruolo, identici per tutti i tipi di giorno. */
+    public Esito generaPerRuolo(LocalDate lunedi, Set<LocalDate> festivi,
+                               List<AssegnazioneTurno> confinanti) throws SQLException {
+        return generaConOrari(lunedi, f -> OrariTurni.per(f.getRuolo(), f.getServizio()), festivi, confinanti);
+    }
+
+    // Un solo algoritmo: cambia soltanto come viene scelta la fascia del fabbisogno.
+    private Esito generaConOrari(LocalDate lunedi, Function<Fabbisogno, OrarioServizio> orari,
+                                Set<LocalDate> festivi, List<AssegnazioneTurno> confinanti) throws SQLException {
+        PianoSettimanale.verificaInizioSettimana(lunedi);
+        Set<LocalDate> giorniFestivi = Set.copyOf(festivi);
+        List<AssegnazioneTurno> storico = copiaConfinanti(lunedi, confinanti);
         for (LocalDate festivo : giorniFestivi) {
             if (!nellaSettimana(lunedi, festivo)) {
                 throw new IllegalArgumentException("I festivi devono appartenere alla settimana selezionata.");
             }
         }
 
-        List<Turno> richiesti = creaTurniRichiesti(lunedi, orariRichiesti, giorniFestivi, fabbisogni.trovaTutti());
+        List<Turno> richiesti = creaTurniRichiesti(lunedi, orari, giorniFestivi, fabbisogni.trovaTutti());
         DatiDipendenti dati = caricaDipendenti(lunedi, richiesti, storico);
         Map<Integer, List<Disponibilita>> finestrePerDipendente = new HashMap<>();
         List<Turno> turni = new ArrayList<>();
@@ -118,7 +134,15 @@ public class GenerazioneTurniService {
 
                 // Il verificatore riceve la proposta completa, compresa l'assegnazione appena provata.
                 proposta.add(candidata);
-                if (verificatore != null && !verifica(lunedi, proposta, storico, dati.contratti()).isEmpty()) {
+                // La riga temporanea include il candidato una sola volta e conserva
+                // il fabbisogno originale, anche durante la costruzione del piano.
+                List<AssegnazioneTurno> tentativo = new ArrayList<>(assegnate);
+                tentativo.add(candidata);
+                List<Turno> righeProposte = new ArrayList<>(turni);
+                righeProposte.add(new Turno(richiesto.servizio(), richiesto.ruolo(),
+                        richiesto.inizio(), richiesto.fine(), richiesto.postiRichiesti(), tentativo));
+                if (verificatore != null && !verifica(new PianoSettimanale(lunedi, righeProposte),
+                        storico, dati.contratti()).isEmpty()) {
                     proposta.removeLast();
                     continue;
                 }
@@ -128,8 +152,9 @@ public class GenerazioneTurniService {
                     richiesto.postiRichiesti(), assegnate));
         }
 
-        List<String> violazioni = verificatore == null ? List.of() : verifica(lunedi, proposta, storico, dati.contratti());
-        return new Esito(new PianoSettimanale(lunedi, turni), dati.nomi(), verificatore != null, violazioni);
+        PianoSettimanale piano = new PianoSettimanale(lunedi, turni);
+        List<String> violazioni = verificatore == null ? List.of() : verifica(piano, storico, dati.contratti());
+        return new Esito(piano, dati.nomi(), verificatore != null, violazioni);
     }
 
     /** Verifica il piano completo risultante da una modifica, con i contratti riletti dal database. */
@@ -141,16 +166,16 @@ public class GenerazioneTurniService {
         LocalDate lunedi = proposta.inizioSettimana();
         List<AssegnazioneTurno> storico = copiaConfinanti(lunedi, confinanti);
         DatiDipendenti dati = caricaDipendenti(lunedi, proposta.turni(), storico);
-        return verifica(lunedi, proposta.assegnazioni(), storico, dati.contratti());
+        return verifica(proposta, storico, dati.contratti());
     }
 
-    private List<String> verifica(LocalDate lunedi, List<AssegnazioneTurno> proposta,
+    private List<String> verifica(PianoSettimanale proposta,
                                  List<AssegnazioneTurno> storico, List<Contratto> contratti) {
-        return List.copyOf(verificatore.verifica(lunedi, List.copyOf(proposta), storico, contratti));
+        return List.copyOf(verificatore.verificaPiano(proposta, storico, contratti));
     }
 
     /** Espande ciascun fabbisogno sulla settimana e pone prima gli intervalli che iniziano prima. */
-    private List<Turno> creaTurniRichiesti(LocalDate lunedi, Map<Servizio, OrarioServizio> orari,
+    private List<Turno> creaTurniRichiesti(LocalDate lunedi, Function<Fabbisogno, OrarioServizio> orari,
                                           Set<LocalDate> festivi, List<Fabbisogno> configurati) {
         List<Turno> turni = new ArrayList<>();
         for (int indice = 0; indice < 7; indice++) {
@@ -159,7 +184,7 @@ public class GenerazioneTurniService {
             for (Fabbisogno fabbisogno : configurati) {
                 if (fabbisogno.getTipoGiorno() == tipo && fabbisogno.getNumeroMinimoDipendenti() > 0) {
                     Servizio servizio = fabbisogno.getServizio();
-                    OrarioServizio orario = orari.get(servizio);
+                    OrarioServizio orario = orari.apply(fabbisogno);
                     turni.add(new Turno(servizio, fabbisogno.getRuolo(), giorno.atTime(orario.inizio()),
                             orario.fineDelServizio(giorno), fabbisogno.getNumeroMinimoDipendenti(), List.of()));
                 }

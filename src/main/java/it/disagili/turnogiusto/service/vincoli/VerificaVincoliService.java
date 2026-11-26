@@ -14,12 +14,86 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.HashSet;
 import it.disagili.turnogiusto.model.Contratto;
+import it.disagili.turnogiusto.model.Turno;
+import it.disagili.turnogiusto.model.TipoContratto;
 
 /**
  * Raccoglie i controlli condivisi dei vincoli US07.
  * Lavora sui dati ricevuti, senza accedere al database o a JavaFX.
  */
 public class VerificaVincoliService {
+
+    /**
+     * Calcola quanti part-time possono essere assegnati
+     * a un singolo ruolo in un singolo turno.
+     *
+     * Usiamo il fabbisogno previsto, non il numero di persone
+     * già assegnate: il piano può essere ancora incompleto.
+     */
+    public int calcolaMassimoPartTime(int postiRichiesti) {
+        if (postiRichiesti < 0) {
+            throw new IllegalArgumentException(
+                    "Il fabbisogno non può essere negativo.");
+        }
+
+        // La divisione tra interi scarta la parte decimale:
+        // 3 posti consentono al massimo 1 part-time.
+        return postiRichiesti / 2;
+    }
+
+    /**
+     * Verifica se i part-time assegnati a un ruolo in un turno
+     * rispettano il massimo consentito dal fabbisogno.
+     *
+     * Anche durante la costruzione del piano, il limite viene
+     * calcolato sui posti richiesti, non sui posti già occupati.
+     */
+    public boolean rispettaQuotaPartTime(
+            int postiRichiesti, int partTimeAssegnati) {
+
+        if (partTimeAssegnati < 0) {
+            throw new IllegalArgumentException(
+                    "Il numero di part-time assegnati non può essere negativo.");
+        }
+
+        return partTimeAssegnati <= calcolaMassimoPartTime(postiRichiesti);
+    }
+
+    /**
+     * Verifica una riga del piano: ruolo e fabbisogno appartengono al Turno.
+     * Il limite resta basato sui posti richiesti anche se la riga è incompleta.
+     * I contratti sono quelli forniti dal chiamante; non rileggiamo il database.
+     * Il messaggio identifica il gruppo, non attribuisce arbitrariamente la colpa
+     * a un singolo dipendente quando è l'intera composizione a violare la quota.
+     */
+    public List<String> verificaQuotaPartTime(Turno turno, List<Contratto> contratti) {
+        if (turno == null || contratti == null) {
+            throw new IllegalArgumentException("Servono turno e contratti per verificare la quota part-time.");
+        }
+        List<Integer> partTime = new ArrayList<>();
+        for (var assegnazione : turno.assegnazioni()) {
+            var validi = contratti.stream().filter(c ->
+                    c.getDipendenteId() == assegnazione.dipendenteId()
+                            && c.isValidoIl(assegnazione.inizio().toLocalDate())).toList();
+            // Controlliamo tutti i tipi prima di contare: filtrare subito i part-time
+            // nasconderebbe un full-time sovrapposto o un contratto mancante.
+            if (validi.size() != 1 || validi.getFirst().getTipoContratto() == null) {
+                throw new IllegalArgumentException("Serve un solo contratto valido con tipo definito per il dipendente "
+                        + assegnazione.dipendenteId() + " alla data " + turno.inizio().toLocalDate());
+            }
+            if (validi.getFirst().getTipoContratto() == TipoContratto.PART_TIME) {
+                partTime.add(assegnazione.dipendenteId());
+            }
+        }
+        if (rispettaQuotaPartTime(turno.postiRichiesti(), partTime.size())) return List.of();
+        partTime.sort(Integer::compareTo);
+        return List.of("Quota part-time superata: " + turno.servizio() + " del "
+                + turno.inizio().toLocalDate() + " (" + turno.inizio().toLocalTime()
+                + " - " + turno.fine() + "), ruolo " + turno.ruolo()
+                + ": " + partTime.size() + " part-time su " + turno.postiRichiesti()
+                + " posti richiesti; massimo " + calcolaMassimoPartTime(turno.postiRichiesti())
+                + ". Dipendenti part-time: " + partTime + ".");
+    }
 
     /**
      * Ingresso complessivo locale di US07, senza database né JavaFX.
@@ -273,9 +347,9 @@ public class VerificaVincoliService {
 
     /**
      * Controlla due assegnazioni valide e ordinate nel tempo.
-     * Vieta le fasce adiacenti dello stesso dipendente, indipendentemente
-     * dal rispetto delle 11 ore di riposo: cena e pranzo standard del giorno
-     * dopo rispettano le 11 ore, ma restano vietati da questa regola.
+     * Vieta pranzo e cena dello stesso giorno per lo stesso dipendente.
+     * Tra cena e pranzo del giorno dopo si applica soltanto il riposo minimo:
+     * con almeno 11 ore la coppia è consentita.
      * Restituisce una lista vuota se la coppia non viola questo vincolo.
      */
     public List<ViolazioneTurno> verificaTurniConsecutivi(
@@ -293,18 +367,8 @@ public class VerificaVincoliService {
                         && successivo.servizio() == Servizio.CENA
                         && precedente.giornoPiano().equals(successivo.giornoPiano());
 
-        // Secondo caso vietato: cena e pranzo del giorno successivo.
-        // Usiamo il giorno del piano: la cena resta assegnata alla domenica
-        // anche quando termina lunedì alle 00:30.
-        boolean cenaEPranzoGiornoDopo =
-                precedente.servizio() == Servizio.CENA
-                        && successivo.servizio() == Servizio.PRANZO
-                        && precedente.giornoPiano().plusDays(1)
-                        .equals(successivo.giornoPiano());
-
-        // Il punto esclamativo significa "non" e && significa "e":
-        // usciamo senza violazioni se nessuno dei due casi si verifica.
-        if (!pranzoECenaStessoGiorno && !cenaEPranzoGiornoDopo) {
+        // Le coppie su giorni diversi sono valutate dal controllo delle 11 ore.
+        if (!pranzoECenaStessoGiorno) {
             return List.of();
         }
 
@@ -314,8 +378,8 @@ public class VerificaVincoliService {
                 TipoViolazione.TURNI_CONSECUTIVI,
                 precedente.dipendenteId(),
                 List.of(precedente, successivo),
-                "Non è consentito assegnare due fasce consecutive "
-                        + "allo stesso dipendente."));
+                "Non è consentito assegnare le fasce consecutive pranzo e cena "
+                        + "dello stesso giorno allo stesso dipendente."));
     }
     /**
      * Verifica le 11 ore di riposo e il divieto di fasce consecutive

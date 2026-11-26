@@ -3,6 +3,8 @@ package it.disagili.turnogiusto.service.vincoli;
 // --- IMPORT -------------------------------------------------------------
 import it.disagili.turnogiusto.model.AssegnazioneTurno;
 import it.disagili.turnogiusto.model.Contratto;
+import it.disagili.turnogiusto.model.PianoSettimanale;
+import java.util.ArrayList;
 import it.disagili.turnogiusto.model.Servizio;
 import it.disagili.turnogiusto.service.VerificatorePropostaTurni;
 
@@ -39,6 +41,19 @@ public class VerificatoreVincoliUS07 implements VerificatorePropostaTurni {
 
     public VerificatoreVincoliUS07(VerificaVincoliService vincoli) {
         this.vincoli = Objects.requireNonNull(vincoli);
+    }
+
+    @Override
+    public List<String> verificaPiano(PianoSettimanale piano,
+                                     List<AssegnazioneTurno> confinanti, List<Contratto> contratti) {
+        // Manteniamo tutte le regole precedenti; aggiungiamo il controllo per riga.
+        // Le sole assegnazioni non contengono ruolo e fabbisogno: non li deduciamo.
+        List<String> esito = new ArrayList<>(verifica(
+                piano.inizioSettimana(), piano.assegnazioni(), confinanti, contratti));
+        for (var turno : piano.turni()) {
+            esito.addAll(vincoli.verificaQuotaPartTime(turno, contratti));
+        }
+        return List.copyOf(esito);
     }
 
     @Override

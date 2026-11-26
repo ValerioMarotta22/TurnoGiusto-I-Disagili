@@ -3,7 +3,6 @@ package it.disagili.turnogiusto.service;
 // --- IMPORT -------------------------------------------------------------
 import it.disagili.turnogiusto.model.AssegnazioneTurno;
 import it.disagili.turnogiusto.model.Dipendente;
-import it.disagili.turnogiusto.model.OrarioServizio;
 import it.disagili.turnogiusto.model.PianoSettimanale;
 import it.disagili.turnogiusto.model.Servizio;
 import it.disagili.turnogiusto.model.Turno;
@@ -13,7 +12,6 @@ import it.disagili.turnogiusto.service.vincoli.VerificatoreVincoliUS07;
 
 import java.sql.SQLException;
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -57,12 +55,6 @@ public class ModificaPianoService {
             violazioni = List.copyOf(violazioni);
         }
     }
-
-    // Orari usati per generare un piano di base: sono quelli preselezionati nella schermata di Edoardo
-    // (pranzo 11:30-16:00, cena 18:00-00:30 del giorno dopo).
-    private static final Map<Servizio, OrarioServizio> ORARI_PREDEFINITI = Map.of(
-            Servizio.PRANZO, new OrarioServizio(LocalTime.of(11, 30), LocalTime.of(16, 0)),
-            Servizio.CENA, new OrarioServizio(LocalTime.of(18, 0), LocalTime.of(0, 30)));
 
     private final PianoRepository piani;
     private final DipendenteRepository dipendenti;
@@ -117,13 +109,14 @@ public class ModificaPianoService {
     // ======================================================================
 
     // Genera in memoria un piano per quella settimana, con la generazione di Edoardo e gli orari
-    // predefiniti, e lo controlla. NON lo salva: lo salva il titolare, dopo averlo guardato e corretto.
+    // condivisi per ruolo, e lo controlla. NON lo salva: lo salva il titolare dopo la revisione.
+    // Le sostituzioni nei piani già esistenti conservano invece gli orari della riga.
     public Esito generaPiano(LocalDate lunedi) throws SQLException {
         if (generazione == null) {
             throw new IllegalStateException("La generazione dei piani non è collegata a questo service.");
         }
         List<AssegnazioneTurno> confinanti = piani.trovaConfinanti(lunedi);
-        PianoSettimanale piano = generazione.genera(lunedi, ORARI_PREDEFINITI, Set.of(), confinanti).piano();
+        PianoSettimanale piano = generazione.generaPerRuolo(lunedi, Set.of(), confinanti).piano();
         return verifica(piano);
     }
 
