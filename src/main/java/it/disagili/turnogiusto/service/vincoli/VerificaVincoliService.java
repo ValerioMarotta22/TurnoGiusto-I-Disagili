@@ -1,5 +1,6 @@
 package it.disagili.turnogiusto.service.vincoli;
 
+import it.disagili.turnogiusto.model.Ruolo;
 import it.disagili.turnogiusto.model.Servizio;
 
 import java.time.Duration;
@@ -65,6 +66,10 @@ public class VerificaVincoliService {
      * I contratti sono quelli forniti dal chiamante; non rileggiamo il database.
      * Il messaggio identifica il gruppo, non attribuisce arbitrariamente la colpa
      * a un singolo dipendente quando è l'intera composizione a violare la quota.
+     *
+     * La quota vale SOLO per i camerieri (decisione del Product Owner): in sala serve
+     * personale fisso, mentre in cucina e al lavaggio i part-time possono coprire anche
+     * da soli un turno. I contratti si controllano comunque per tutti i ruoli.
      */
     public List<String> verificaQuotaPartTime(Turno turno, List<Contratto> contratti) {
         if (turno == null || contratti == null) {
@@ -85,6 +90,8 @@ public class VerificaVincoliService {
                 partTime.add(assegnazione.dipendenteId());
             }
         }
+        // Solo i camerieri hanno il limite di part-time per turno.
+        if (turno.ruolo() != Ruolo.CAMERIERE) return List.of();
         if (rispettaQuotaPartTime(turno.postiRichiesti(), partTime.size())) return List.of();
         partTime.sort(Integer::compareTo);
         return List.of("Quota part-time superata: " + turno.servizio() + " del "

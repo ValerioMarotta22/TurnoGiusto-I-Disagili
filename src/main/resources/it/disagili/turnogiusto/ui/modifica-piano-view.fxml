@@ -27,6 +27,13 @@
         <Label fx:id="intervallo" styleClass="nota"/>
     </HBox>
 
+    <!-- GIORNI FESTIVI: si scelgono prima di generare la bozza e si salvano con il piano. -->
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Label text="Festivi"/>
+        <FlowPane fx:id="festivi" hgap="10" vgap="4" accessibleText="Giorni festivi della settimana"/>
+    </HBox>
+    <Label fx:id="notaFestivi" styleClass="nota" wrapText="true"/>
+
     <!-- TABELLA: una riga per servizio e ruolo, con i posti richiesti, quelli scoperti e chi è assegnato. -->
     <TableView fx:id="tabella" VBox.vgrow="ALWAYS" minHeight="180">
         <columnResizePolicy>

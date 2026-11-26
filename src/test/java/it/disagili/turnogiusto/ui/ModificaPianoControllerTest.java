@@ -94,14 +94,34 @@ class ModificaPianoControllerTest {
             return new Esito(cambia(piano, riga, null, nuovoId), violazioni, true);
         }
 
+        java.util.Set<LocalDate> festiviArchivio = java.util.Set.of(); // i festivi "salvati"
+        java.util.Set<LocalDate> festiviGenerazione;                    // quelli passati a generaPiano()
+
         @Override
         public void salva(PianoSettimanale piano) {
+            salva(piano, festiviArchivio);
+        }
+
+        @Override
+        public void salva(PianoSettimanale piano, java.util.Set<LocalDate> festivi) {
             salvato = piano;
             archivio = piano; // dopo il salvataggio il "database" contiene questo piano
+            festiviArchivio = festivi;
+        }
+
+        @Override
+        public java.util.Set<LocalDate> festivi(LocalDate lunedi) {
+            return festiviArchivio;
         }
 
         @Override
         public Esito generaPiano(LocalDate lunedi) {
+            return generaPiano(lunedi, java.util.Set.of());
+        }
+
+        @Override
+        public Esito generaPiano(LocalDate lunedi, java.util.Set<LocalDate> festivi) {
+            festiviGenerazione = festivi;
             return new Esito(generato, violazioni, true);
         }
 
@@ -249,6 +269,54 @@ class ModificaPianoControllerTest {
         assertEquals("Anna Rossi, Sara Neri", cella("assegnatiColonna", 0));
         assertFalse(suJavaFx(() -> ((Button) nodo("salva")).isDisabled())); // c'e' qualcosa da salvare
         assertNull(service.salvato); // ma non e' stato salvato da solo
+    }
+
+    // ================================================================ FESTIVI
+
+    // spunta (o legge) la casella del giorno "indice" (0 = lunedi')
+    private javafx.scene.control.CheckBox casellaFestivo(int indice) throws Exception {
+        return suJavaFx(() -> (javafx.scene.control.CheckBox)
+                ((javafx.scene.layout.FlowPane) nodo("festivi")).getChildren().get(indice));
+    }
+
+    private void scegliSettimana() throws Exception {
+        suJavaFx(() -> {
+            ((javafx.scene.control.DatePicker) nodo("settimana")).setValue(LUNEDI);
+            return null;
+        });
+    }
+
+    @Test
+    void iFestiviSpuntatiVannoAllaGenerazioneEPoiSiSalvanoConIlPiano() throws Exception {
+        service.archivio = null;
+        service.generato = pianoDiEsempio();
+        scegliSettimana();
+        premi("carica");
+        suJavaFx(() -> {
+            casellaFestivo(3).setSelected(true); // giovedi'
+            casellaFestivo(4).setSelected(true); // venerdi'
+            return null;
+        });
+
+        premi("genera");
+        assertEquals(java.util.Set.of(LUNEDI.plusDays(3), LUNEDI.plusDays(4)), service.festiviGenerazione);
+        assertTrue(casellaFestivo(3).isDisabled(), "dopo la generazione i festivi non si cambiano");
+
+        premi("salva");
+        assertEquals(java.util.Set.of(LUNEDI.plusDays(3), LUNEDI.plusDays(4)), service.festiviArchivio);
+    }
+
+    @Test
+    void riaprendoUnPianoSalvatoIFestiviRisultanoSpuntati() throws Exception {
+        service.festiviArchivio = java.util.Set.of(LUNEDI.plusDays(3));
+        scegliSettimana();
+
+        premi("carica");
+
+        assertEquals(7, suJavaFx(() -> ((javafx.scene.layout.FlowPane) nodo("festivi")).getChildren().size()));
+        assertTrue(casellaFestivo(3).isSelected());
+        assertFalse(casellaFestivo(4).isSelected());
+        assertEquals("gio 03/12", casellaFestivo(3).getText());
     }
 
     @Test

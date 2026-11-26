@@ -70,6 +70,53 @@ class PianoRepositoryTest extends DatabaseDisponibilitaSupport {
         assertEquals(1, riletto.get().postiScoperti()); // 3 camerieri richiesti, 2 assegnati
     }
 
+    // ================================================================ FESTIVI DEL PIANO
+
+    @Test
+    void iFestiviSiSalvanoESiRileggonoConIlPiano() throws SQLException {
+        PianoSettimanale piano = new PianoSettimanale(LUNEDI, List.of(cenaDelSabato(giulia)));
+        java.util.Set<LocalDate> festivi = java.util.Set.of(LUNEDI.plusDays(3), LUNEDI.plusDays(4)); // gio e ven
+
+        repository.salva(piano, festivi);
+
+        assertEquals(festivi, repository.trovaFestivi(LUNEDI));
+        assertEquals(piano, repository.trova(LUNEDI).orElseThrow()); // il piano resta uguale
+    }
+
+    @Test
+    void risalvareSenzaFestiviLiToglie() throws SQLException {
+        PianoSettimanale piano = new PianoSettimanale(LUNEDI, List.of(cenaDelSabato(giulia)));
+        repository.salva(piano, java.util.Set.of(LUNEDI.plusDays(3)));
+
+        repository.salva(piano, java.util.Set.of());
+
+        assertTrue(repository.trovaFestivi(LUNEDI).isEmpty());
+    }
+
+    @Test
+    void ilVecchioSalvaTieneIFestiviGiaSalvati() throws SQLException {
+        PianoSettimanale piano = new PianoSettimanale(LUNEDI, List.of(cenaDelSabato(giulia)));
+        repository.salva(piano, java.util.Set.of(LUNEDI.plusDays(4)));
+
+        repository.salva(new PianoSettimanale(LUNEDI, List.of(cenaDelSabato(giulia, sara))));
+
+        assertEquals(java.util.Set.of(LUNEDI.plusDays(4)), repository.trovaFestivi(LUNEDI));
+    }
+
+    @Test
+    void unFestivoFuoriDallaSettimanaVieneRifiutatoENonSiSalvaNiente() {
+        PianoSettimanale piano = new PianoSettimanale(LUNEDI, List.of(cenaDelSabato(giulia)));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> repository.salva(piano, java.util.Set.of(LUNEDI.plusWeeks(1))));
+        assertDoesNotThrow(() -> assertTrue(repository.trova(LUNEDI).isEmpty()));
+    }
+
+    @Test
+    void unaSettimanaSenzaPianoNonHaFestivi() throws SQLException {
+        assertTrue(repository.trovaFestivi(LUNEDI).isEmpty());
+    }
+
     @Test
     void unaSettimanaSenzaPianoNonHaNiente() throws SQLException {
         assertTrue(repository.trova(LUNEDI).isEmpty());

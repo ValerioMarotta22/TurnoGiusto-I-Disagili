@@ -57,6 +57,22 @@ class QuotaPartTimeTest {
     }
 
     @Test
+    void laQuotaValeSoloPerICamerieri() {
+        // un turno da un posto coperto da un part-time: vietato al cameriere, permesso agli altri ruoli
+        assertEquals(1, vincoli.verificaQuotaPartTime(turno(1, Ruolo.CAMERIERE, LUNEDI, 1), contratti).size());
+        for (Ruolo ruolo : List.of(Ruolo.CUOCO, Ruolo.AIUTO_CUOCO, Ruolo.LAVAPIATTI)) {
+            assertTrue(vincoli.verificaQuotaPartTime(turno(1, ruolo, LUNEDI, 1), contratti).isEmpty(), ruolo.name());
+            assertTrue(vincoli.verificaQuotaPartTime(turno(2, ruolo, LUNEDI, 1, 2), contratti).isEmpty(), ruolo.name());
+        }
+    }
+
+    @Test
+    void ancheGliAltriRuoliRichiedonoUnContrattoValido() {
+        var riga = turno(1, Ruolo.LAVAPIATTI, LUNEDI, 1);
+        assertThrows(IllegalArgumentException.class, () -> vincoli.verificaQuotaPartTime(riga, List.of()));
+    }
+
+    @Test
     void nonNascondeContrattiMancantiScadutiOSovrapposti() {
         var riga = turno(2, Ruolo.CAMERIERE, LUNEDI, 1);
         assertThrows(IllegalArgumentException.class, () -> vincoli.verificaQuotaPartTime(riga, List.of()));

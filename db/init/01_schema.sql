@@ -128,6 +128,15 @@ CREATE TABLE assegnazione_turno (
                                     CONSTRAINT uq_assegnazione UNIQUE (turno_id, dipendente_id)
 ) ENGINE=InnoDB;
 
+-- PIANO_FESTIVO: i giorni che il titolare ha segnato come festivi per quella settimana.
+-- Servono per rigenerare la bozza con lo stesso fabbisogno e per mostrarli di nuovo nella modifica.
+CREATE TABLE piano_festivo (
+                               piano_id INT UNSIGNED NOT NULL,
+                               giorno   DATE NOT NULL,
+                               PRIMARY KEY (piano_id, giorno),
+                               CONSTRAINT fk_piano_festivo_piano FOREIGN KEY (piano_id) REFERENCES piano (id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
 -- ---------------------------------------------------------------------
 -- UTENTE (accesso): chi puo' entrare nell'applicazione e come.
 -- tipo TITOLARE  = gestisce dipendenti, fabbisogno e turni (dipendente_id vuoto);
