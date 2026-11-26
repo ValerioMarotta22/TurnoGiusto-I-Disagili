@@ -460,6 +460,87 @@ class GenerazioneTurniControllerTest {
     }
 
     /** Carica la schermata reale con un service controllato dal test. */
+    // ================================================================ SALVA BOZZA
+
+    /** Repository finto: ricorda cosa e' stato salvato, senza database. */
+    private static class PianiFinti extends it.disagili.turnogiusto.repository.PianoRepository {
+        PianoSettimanale salvato;
+        Set<LocalDate> festiviSalvati;
+        boolean giaPresente;
+
+        @Override public java.util.Optional<PianoSettimanale> trova(LocalDate lunedi) {
+            return giaPresente ? java.util.Optional.of(new PianoSettimanale(lunedi, List.of())) : java.util.Optional.empty();
+        }
+        @Override public void salva(PianoSettimanale piano, Set<LocalDate> festivi) {
+            salvato = piano;
+            festiviSalvati = festivi;
+        }
+    }
+
+    private GenerazioneTurniService servizioConBozza() {
+        return new GenerazioneTurniService() {
+            @Override
+            public Esito generaPerRuolo(LocalDate lunedi, Set<LocalDate> festivi, List<AssegnazioneTurno> confinanti) {
+                AssegnazioneTurno a = new AssegnazioneTurno(8, lunedi.atTime(18, 0), lunedi.atTime(23, 0));
+                Turno t = new Turno(Servizio.CENA, Ruolo.CAMERIERE, a.inizio(), a.fine(), 1, List.of(a));
+                return new Esito(new PianoSettimanale(lunedi, List.of(t)), Map.of(8, "Giulia Rossi"), true, List.of());
+            }
+        };
+    }
+
+    /** Genera con giovedi' e venerdi' spuntati e preme "Salva bozza"; restituisce la schermata. */
+    private FXMLLoader generaESalva(PianiFinti piani, boolean conferma) throws Exception {
+        CountDownLatch mostrato = new CountDownLatch(1);
+        FXMLLoader loader = suJavaFx(() -> {
+            FXMLLoader schermata = new FXMLLoader(getClass().getResource("generazione-turni-view.fxml"));
+            GenerazioneTurniController controller = new GenerazioneTurniController(servizioConBozza(), piani);
+            controller.impostaConfermaSovrascrittura(() -> conferma);
+            schermata.setControllerFactory(classe -> controller);
+            Parent radice = schermata.load();
+            new Scene(radice, 900, 720);
+            campoData(schermata).setValue(LUNEDI);
+            FlowPane festivi = (FlowPane) schermata.getNamespace().get("festivi");
+            ((CheckBox) festivi.getChildren().get(3)).setSelected(true);
+            ((CheckBox) festivi.getChildren().get(4)).setSelected(true);
+            assertTrue(((javafx.scene.control.Button) schermata.getNamespace().get("salvaBozza")).isDisabled(),
+                    "prima di generare non c'e' niente da salvare");
+            messaggio(schermata).textProperty().addListener((osservabile, prima, dopo) -> {
+                if (!dopo.equals("Generazione in corso…")) mostrato.countDown();
+            });
+            genera(schermata).fire();
+            return schermata;
+        });
+        assertTrue(mostrato.await(5, TimeUnit.SECONDS));
+        suJavaFx(() -> {
+            ((javafx.scene.control.Button) loader.getNamespace().get("salvaBozza")).fire();
+            return null;
+        });
+        return loader;
+    }
+
+    @Test
+    void salvaBozzaSalvaIlPianoInsiemeAiFestiviSpuntati() throws Exception {
+        PianiFinti piani = new PianiFinti();
+
+        FXMLLoader loader = generaESalva(piani, true);
+
+        assertNotNull(piani.salvato);
+        assertEquals(LUNEDI, piani.salvato.inizioSettimana());
+        assertEquals(Set.of(LUNEDI.plusDays(3), LUNEDI.plusDays(4)), piani.festiviSalvati);
+        assertTrue(suJavaFx(() -> messaggio(loader).getText()).contains("Modifica piano"));
+    }
+
+    @Test
+    void seLaSettimanaHaGiaUnPianoENonSiConfermaNonSalvaNiente() throws Exception {
+        PianiFinti piani = new PianiFinti();
+        piani.giaPresente = true;
+
+        FXMLLoader loader = generaESalva(piani, false);
+
+        assertNull(piani.salvato);
+        assertTrue(suJavaFx(() -> messaggio(loader).getText()).contains("annullato"));
+    }
+
     private FXMLLoader carica(GenerazioneTurniService servizio) throws Exception {
         FXMLLoader loader = new FXMLLoader(getClass().getResource("generazione-turni-view.fxml"));
         loader.setControllerFactory(classe -> new GenerazioneTurniController(servizio));

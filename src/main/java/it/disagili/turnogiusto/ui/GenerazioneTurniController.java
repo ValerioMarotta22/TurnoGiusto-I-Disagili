@@ -6,6 +6,7 @@ import it.disagili.turnogiusto.model.Ruolo;
 import it.disagili.turnogiusto.model.PianoSettimanale;
 import it.disagili.turnogiusto.model.Servizio;
 import it.disagili.turnogiusto.model.Turno;
+import it.disagili.turnogiusto.repository.PianoRepository;
 import it.disagili.turnogiusto.service.GenerazioneTurniService;
 import it.disagili.turnogiusto.service.vincoli.VerificatoreVincoliUS07;
 import javafx.beans.property.ReadOnlyObjectWrapper;
@@ -13,6 +14,9 @@ import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.concurrent.Task;
 import javafx.css.PseudoClass;
 import javafx.fxml.FXML;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.DateCell;
 import javafx.scene.control.DatePicker;
@@ -39,6 +43,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
@@ -63,9 +68,17 @@ public class GenerazioneTurniController {
     @FXML private TreeTableColumn<RigaPiano, Integer> richiestiColonna;
     @FXML private TreeTableColumn<RigaPiano, Integer> scopertiColonna;
     @FXML private Label messaggio;
+    @FXML private Button salvaBozza;
 
     private final GenerazioneTurniService servizio;
+    private final PianoRepository piani;          // per salvare la bozza (US06B la rilegge in "Modifica piano")
     private Map<Integer, String> nomiDipendenti = Map.of();
+
+    // L'ultima bozza generata e i festivi usati per generarla: si salvano insieme.
+    private PianoSettimanale bozza;
+    private Set<LocalDate> festiviBozza = Set.of();
+    // Prima di sostituire un piano gia' salvato si chiede conferma. Nei test si puo' sostituire.
+    private BooleanSupplier confermaSovrascrittura = this::chiediConfermaSovrascrittura;
 
     public GenerazioneTurniController() {
         // Con i controlli di US07 collegati: senza, il generatore ignorerebbe riposi, doppi servizi e monte ore.
@@ -73,7 +86,16 @@ public class GenerazioneTurniController {
     }
 
     GenerazioneTurniController(GenerazioneTurniService servizio) {
+        this(servizio, new PianoRepository());
+    }
+
+    GenerazioneTurniController(GenerazioneTurniService servizio, PianoRepository piani) {
         this.servizio = servizio;
+        this.piani = piani;
+    }
+
+    void impostaConfermaSovrascrittura(BooleanSupplier conferma) {
+        this.confermaSovrascrittura = conferma;
     }
 
     @FXML
@@ -192,6 +214,9 @@ public class GenerazioneTurniController {
     /** Quando cambia la settimana, le scelte dei festivi della precedente vengono azzerate. */
     private void cambiaSettimana(LocalDate lunedi) {
         festivi.getChildren().clear();
+        // La bozza mostrata era di un'altra settimana: non si puo' piu' salvare.
+        bozza = null;
+        if (salvaBozza != null) salvaBozza.setDisable(true);
         if (lunedi == null || lunedi.getDayOfWeek() != DayOfWeek.MONDAY) {
             return;
         }
@@ -226,6 +251,9 @@ public class GenerazioneTurniController {
             }
         };
         lavoro.setOnSucceeded(evento -> {
+            bozza = lavoro.getValue().piano();
+            festiviBozza = Set.copyOf(giorniFestivi);
+            salvaBozza.setDisable(false);
             mostraPiano(lavoro.getValue());
             impostazioni.setDisable(false);
         });
@@ -243,6 +271,35 @@ public class GenerazioneTurniController {
         Thread thread = new Thread(lavoro, "generazione-turni");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    /**
+     * Salva l'ultima bozza INSIEME ai festivi spuntati: in "Turni - Modifica piano" si ritrovano
+     * il piano e le stesse spunte. Se la settimana ha gia' un piano salvato chiede conferma.
+     */
+    @FXML
+    private void onSalvaBozza() {
+        if (bozza == null) {
+            return;
+        }
+        try {
+            if (piani.trova(bozza.inizioSettimana()).isPresent() && !confermaSovrascrittura.getAsBoolean()) {
+                mostraMessaggio("Salvataggio annullato: il piano già salvato non è stato toccato.", false);
+                return;
+            }
+            piani.salva(bozza, festiviBozza);
+            mostraMessaggio("Bozza salvata con i festivi scelti. La trovi in Turni → Modifica piano.", false);
+        } catch (SQLException errore) {
+            mostraMessaggio("Salvataggio non riuscito. Controlla MySQL in Docker e riprova.", true);
+        }
+    }
+
+    private boolean chiediConfermaSovrascrittura() {
+        Alert avviso = new Alert(Alert.AlertType.CONFIRMATION,
+                "Per questa settimana c'è già un piano salvato. Vuoi sostituirlo con la nuova bozza?",
+                ButtonType.OK, ButtonType.CANCEL);
+        avviso.setHeaderText("Sostituire il piano salvato?");
+        return avviso.showAndWait().filter(bottone -> bottone == ButtonType.OK).isPresent();
     }
 
     private Set<LocalDate> leggiFestivi() {

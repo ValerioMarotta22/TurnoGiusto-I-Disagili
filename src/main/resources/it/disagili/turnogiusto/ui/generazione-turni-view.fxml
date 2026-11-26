@@ -18,6 +18,8 @@
             <Label text="Lunedì della settimana"/>
             <DatePicker fx:id="settimana" editable="false" prefWidth="145" accessibleText="Lunedì della settimana"/>
             <Button fx:id="genera" text="Genera bozza" onAction="#onGenera" styleClass="principale"/>
+            <!-- Salva la bozza con i festivi: si ritrova in Turni - Modifica piano. -->
+            <Button fx:id="salvaBozza" text="Salva bozza" onAction="#onSalvaBozza" disable="true"/>
         </HBox>
         <HBox spacing="10" alignment="CENTER_LEFT">
             <!-- Il controller legge gli orari condivisi per ruolo, senza duplicarli nel FXML. -->
