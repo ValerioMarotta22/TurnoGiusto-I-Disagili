@@ -27,11 +27,61 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Alcune prove usano intenzionalmente un pranzo anticipato alle 11:00 o alle 11:29
  * per verificare il rifiuto di un riposo inferiore a 11 ore: non sono fasce standard.
  * I test del riposo restano separati da quelli del divieto di fasce consecutive:
- * cena e pranzo standard del giorno dopo rispettano le 11 ore, ma violano il secondo vincolo.
- * I tipi condivisi di US06A non sono ancora disponibili in questo ramo:
- * queste prove non attestano il collegamento reale con proposta/confinanti.
+ * cena e pranzo standard del giorno dopo sono consentiti con almeno 11 ore di riposo.
+ * Qui proviamo il service in memoria; l'adattatore ha test dedicati separati.
  */
 class VerificaVincoliServiceTest {
+
+    @Test
+    void quotaPartTimeAccettaIlLimiteERifiutaIlSuperamento() {
+        var verificatore = new VerificaVincoliService();
+        assertTrue(verificatore.rispettaQuotaPartTime(4, 2));
+        assertFalse(verificatore.rispettaQuotaPartTime(4, 3));
+        assertTrue(verificatore.rispettaQuotaPartTime(3, 1));
+        assertFalse(verificatore.rispettaQuotaPartTime(3, 2));
+        assertTrue(verificatore.rispettaQuotaPartTime(1, 0));
+        assertFalse(verificatore.rispettaQuotaPartTime(1, 1));
+        // Piano parziale: un part-time su quattro posti richiesti è consentito,
+        // anche quando è l'unica persona già assegnata.
+        assertTrue(verificatore.rispettaQuotaPartTime(4, 1));
+        assertTrue(verificatore.rispettaQuotaPartTime(0, 0));
+        assertFalse(verificatore.rispettaQuotaPartTime(0, 1));
+    }
+
+    @Test
+    void quotaPartTimeRifiutaConteggiNegativi() {
+        var verificatore = new VerificaVincoliService();
+        assertThrows(IllegalArgumentException.class, () -> verificatore.rispettaQuotaPartTime(4, -1));
+        assertThrows(IllegalArgumentException.class, () -> verificatore.rispettaQuotaPartTime(-1, 0));
+    }
+
+    @Test
+    void quotaPartTimeAmmetteLaMetaDelFabbisognoPari() {
+        var verificatore = new VerificaVincoliService();
+        assertEquals(1, verificatore.calcolaMassimoPartTime(2));
+        assertEquals(2, verificatore.calcolaMassimoPartTime(4));
+        assertEquals(3, verificatore.calcolaMassimoPartTime(6));
+    }
+
+    @Test
+    void quotaPartTimeArrotondaPerDifettoConFabbisognoDispari() {
+        var verificatore = new VerificaVincoliService();
+        // Un solo posto deve essere coperto da un full-time; con tre ne basta uno part-time.
+        assertEquals(0, verificatore.calcolaMassimoPartTime(1));
+        assertEquals(1, verificatore.calcolaMassimoPartTime(3));
+        assertEquals(2, verificatore.calcolaMassimoPartTime(5));
+    }
+
+    @Test
+    void quotaPartTimeSenzaFabbisognoNonAmmettePartTime() {
+        assertEquals(0, new VerificaVincoliService().calcolaMassimoPartTime(0));
+    }
+
+    @Test
+    void quotaPartTimeRifiutaUnFabbisognoNegativo() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new VerificaVincoliService().calcolaMassimoPartTime(-1));
+    }
 
     @Test
     void dieciOreTraDomenicaELunediNonRispettanoIlRiposoMinimo() {
@@ -571,13 +621,12 @@ class VerificaVincoliServiceTest {
     }
 
     @Test
-    void segnalaCenaEPranzoDelGiornoDopoAncheConUndiciOreDiRiposo() {
+    void ammetteCenaEPranzoDelGiornoDopoConUndiciOreDiRiposo() {
         AssegnazioneDaVerificare cenaDomenica = cenaDomenicaleDi(5);
         AssegnazioneDaVerificare pranzoLunedi = pranzoDiLunedi(5, 11, 30);
         VerificaVincoliService verificatore = new VerificaVincoliService();
 
-        // Anna ha precisamente 11 ore di riposo. Non dobbiamo cambiare quella soglia
-        // per vietare cena/pranzo: è una nuova regola sulle fasce del piano.
+        // Anna ha precisamente 11 ore di riposo: cena/pranzo è consentito.
         assertEquals(Duration.ofHours(11),
                 verificatore.calcolaRiposo(cenaDomenica.fine(), pranzoLunedi.inizio()));
         assertTrue(verificatore.verificaRiposo(cenaDomenica, pranzoLunedi).isEmpty());
@@ -585,12 +634,7 @@ class VerificaVincoliServiceTest {
         List<ViolazioneTurno> violazioni =
                 verificatore.verificaTurniConsecutivi(cenaDomenica, pranzoLunedi);
 
-        assertEquals(1, violazioni.size());
-        ViolazioneTurno violazione = violazioni.getFirst();
-        assertEquals(TipoViolazione.TURNI_CONSECUTIVI, violazione.tipo());
-        assertEquals(5, violazione.dipendenteId());
-        assertEquals(List.of(cenaDomenica, pranzoLunedi), violazione.turniCoinvolti());
-        assertTrue(violazione.motivo().contains("fasce consecutive"));
+        assertTrue(violazioni.isEmpty());
     }
 
     @Test
@@ -745,18 +789,14 @@ class VerificaVincoliServiceTest {
     }
 
     @Test
-    void laVerificaCombinataSegnalaSoloLeFasceConsecutiveAlLimiteDelleUndiciOre() {
+    void laVerificaCombinataAmmetteCenaEPranzoAlLimiteDelleUndiciOre() {
         var cena = cenaDomenicaleDi(5);
         var pranzo = pranzoDiLunedi(5, 11, 30);
         var verificatore = new VerificaVincoliService();
 
-        // Il turno confinante precede la proposta: le 11 ore sono rispettate,
-        // ma il divieto cena/pranzo deve comunque arrivare al chiamante.
+        // Il turno confinante precede la proposta: le 11 ore sono sufficienti.
         var esito = verificatore.verificaVincoliTraTurniProposta(List.of(pranzo), List.of(cena));
-        assertEquals(1, esito.size());
-        assertEquals(TipoViolazione.TURNI_CONSECUTIVI, esito.getFirst().tipo());
-        assertEquals(5, esito.getFirst().dipendenteId());
-        assertEquals(List.of(cena, pranzo), esito.getFirst().turniCoinvolti());
+        assertTrue(esito.isEmpty());
 
         // Controlliamo anche il verso opposto: il confinante è successivo alla proposta.
         assertEquals(esito,
@@ -802,8 +842,9 @@ class VerificaVincoliServiceTest {
     void laVerificaCombinataNonDipendeDallOrdineENonModificaGliIngressi() {
         var cenaAnna = cenaDomenicaleDi(5);
         var cenaAltro = cenaDomenicaleDi(6);
-        var pranzoAnna = pranzoDiLunedi(5, 11, 30);
-        var pranzoAltro = pranzoDiLunedi(6, 11, 30);
+        // Entrambi anticipano il pranzo: restano due violazioni del riposo minimo.
+        var pranzoAnna = pranzoDiLunedi(5, 11, 0);
+        var pranzoAltro = pranzoDiLunedi(6, 11, 0);
         var proposta = new ArrayList<>(List.of(pranzoAltro, pranzoAnna));
         var confinanti = new ArrayList<>(List.of(cenaAnna, cenaAltro));
         var copiaProposta = List.copyOf(proposta);
@@ -831,7 +872,7 @@ class VerificaVincoliServiceTest {
         // Simuliamo in memoria il piano risultante dalla modifica manuale:
         // il pranzo viene sostituito dalla cena, non mantenuto nella nuova proposta.
         var prima = verificatore.verificaVincoliTraTurniProposta(
-                List.of(pranzoDiLunedi(5, 11, 30)), List.of(cenaDomenica));
+                List.of(pranzoDiLunedi(5, 11, 0)), List.of(cenaDomenica));
         assertEquals(1, prima.size());
         assertTrue(verificatore.verificaVincoliTraTurniProposta(
                 List.of(cenaLunedi), List.of(cenaDomenica)).isEmpty());
@@ -1111,10 +1152,11 @@ class VerificaVincoliServiceTest {
         var copiaContratti = List.copyOf(contratti);
         var verificatore = new VerificaVincoliService();
 
-        // Anna: 38 ore, sette giorni occupati, pranzo/cena e confine domenica/lunedì.
+        // Anna: 38 ore, sette giorni occupati e pranzo/cena dello stesso giorno.
+        // I passaggi cena/pranzo a distanza di 11 ore non producono più violazioni.
         // L'altra persona ha un solo pranzo e non deve ricevere segnalazioni.
         var esito = verificatore.verificaSettimana(lunedi, proposta, confinanti, contratti);
-        assertEquals(6, esito.size());
+        assertEquals(4, esito.size());
         assertTrue(esito.stream().allMatch(v -> v.dipendenteId() == 5));
         assertEquals(4L, esito.stream().map(ViolazioneTurno::tipo).distinct().count());
         assertEquals(1L, esito.stream().filter(v -> v.tipo() == TipoViolazione.MONTE_ORE_SUPERATO).count());
@@ -1138,9 +1180,9 @@ class VerificaVincoliServiceTest {
         var confinanti = List.of(cenaDomenicaleDi(5));
         var verificatore = new VerificaVincoliService();
         var prima = verificatore.verificaSettimana(
-                lunedi, List.of(pranzoDiLunedi(5, 11, 30)), confinanti, contratti);
+                lunedi, List.of(pranzoDiLunedi(5, 11, 0)), confinanti, contratti);
         assertEquals(1, prima.size());
-        assertEquals(TipoViolazione.TURNI_CONSECUTIVI, prima.getFirst().tipo());
+        assertEquals(TipoViolazione.RIPOSO_INSUFFICIENTE, prima.getFirst().tipo());
         var nuovaCena = new AssegnazioneDaVerificare(5, lunedi, Servizio.CENA,
                 lunedi.atTime(18, 0), lunedi.plusDays(1).atTime(0, 30));
         // Solo il nuovo turno: il service non trattiene lo stato della chiamata precedente.
@@ -1154,14 +1196,17 @@ class VerificaVincoliServiceTest {
         var domenica = lunedi.plusDays(6);
         var cena = new AssegnazioneDaVerificare(5, domenica, Servizio.CENA,
                 domenica.atTime(18, 0), domenica.plusDays(1).atTime(0, 30));
-        var pranzoSeguente = pranziStandardDa(5, lunedi.plusDays(7), 1);
+        var giornoSeguente = lunedi.plusDays(7);
+        // Anticipo intenzionale: 00:30 -> 11:00 sono soltanto 10 ore e 30.
+        var pranzoSeguente = List.of(new AssegnazioneDaVerificare(5, giornoSeguente,
+                Servizio.PRANZO, giornoSeguente.atTime(11, 0), giornoSeguente.atTime(16, 0)));
         var verificatore = new VerificaVincoliService();
         // Contratto da 7 ore: la cena vale 6h30; il pranzo della settimana dopo
-        // serve al controllo delle fasce consecutive ma non entra nel monte ore corrente.
+        // serve al controllo delle 11 ore ma non entra nel monte ore corrente.
         var esito = verificatore.verificaSettimana(lunedi, List.of(cena), pranzoSeguente,
                 List.of(contrattoSettimanaleDiProva(7)));
         assertEquals(1, esito.size());
-        assertEquals(TipoViolazione.TURNI_CONSECUTIVI, esito.getFirst().tipo());
+        assertEquals(TipoViolazione.RIPOSO_INSUFFICIENTE, esito.getFirst().tipo());
         assertEquals(List.of(cena, pranzoSeguente.getFirst()), esito.getFirst().turniCoinvolti());
     }
 

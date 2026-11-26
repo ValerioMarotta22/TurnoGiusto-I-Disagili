@@ -40,6 +40,23 @@ class VerificatoreVincoliUS07Test {
         assertTrue(violazioni.isEmpty());
     }
 
+    /** Il vero adattatore deve consentire cena/pranzo quando il riposo è sufficiente. */
+    @Test
+    void cenaConfinanteEPranzoUsanoSoltantoLaSogliaDelleUndiciOre() {
+        var cena = turno(LUNEDI.minusDays(1).atTime(18, 0), LUNEDI.atTime(0, 30));
+        for (int minuto : List.of(0, 29, 30, 31)) {
+            var pranzo = turno(LUNEDI.atTime(11, minuto), LUNEDI.atTime(16, 0));
+            var esito = verificatore.verifica(LUNEDI, List.of(pranzo), List.of(cena), contratti());
+            if (minuto < 30) {
+                // Nessuna seconda segnalazione sulle fasce consecutive.
+                assertEquals(1, esito.size());
+                assertFalse(esito.getFirst().contains("fasce consecutive"));
+            } else {
+                assertTrue(esito.isEmpty());
+            }
+        }
+    }
+
     @Test
     void menoDiUndiciOreDiRiposoVieneSegnalato() {
         // cena di sabato fino alle 2 di domenica, poi pranzo di domenica alle 11:30: 9 ore e mezza di riposo
