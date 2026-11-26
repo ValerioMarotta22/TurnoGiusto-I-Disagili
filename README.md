@@ -18,7 +18,13 @@ dei turni lavorativi nella ristorazione.
 Il progetto segue il framework Scrum.
 
 ## Stato del progetto
-Sprint 1 in corso (consegna il 12 novembre): ambiente di sviluppo pronto, schermate e storie da sviluppare.
+Sprint 2 concluso (26 novembre).
+- **Sprint 1:** dipendenti e contratti, disponibilità dei part-time, fabbisogno (US-01…US-05).
+- **Sprint 2:** generazione automatica del piano settimanale (US-06A), modifica del piano (US-06B), controllo di regole e contratti (US-07); in più accesso con ruoli e «I miei turni» per i dipendenti (US-08) e limite dei part-time in sala (US-09).
+
+Il percorso principale, da titolare:
+1. **Turni > Genera piano settimanale**: scegliere il lunedì, spuntare i giorni festivi, *Genera bozza*, poi *Salva bozza* (salva il piano insieme ai festivi).
+2. **Turni > Modifica piano settimanale**: caricare la stessa settimana; i festivi risultano già spuntati. Si possono sostituire persone e coprire i posti scoperti; sotto compaiono gli avvisi su regole violate e fabbisogno non coperto. Gli avvisi non bloccano il salvataggio: decide il titolare.
 
 ---
 
@@ -139,6 +145,17 @@ docker compose exec db mysql -uturnogiusto -pturnogiusto turnogiusto
 - Nel file dei dati gli ID sono scritti a mano: per aggiungere righe usare numeri nuovi e usare gli stessi numeri nelle tabelle collegate (`contratto`, `disponibilita`), altrimenti MySQL dà un errore di chiave esterna.
 - Lo schema è allineato alle classi del pacchetto `model`: i valori degli ENUM del database sono i nomi delle enum Java (il test `DatabaseTest` controlla che coincidano). Se si aggiunge un valore a un'enum, va aggiunto anche allo schema, e viceversa.
 
+### Aggiornare un database già esistente (migrazioni)
+Chi ha creato il database prima di un aggiornamento di `db/init` non riceve le modifiche, perché gli script partono solo alla prima creazione. Due strade:
+- **Ricrearlo da zero** (si perdono i dati inseriti a mano): `docker compose down -v` e poi `docker compose up -d --wait`.
+- **Aggiornarlo senza perdere i dati**, eseguendo gli script di `db/migrations` in ordine. Da PowerShell, nella cartella del progetto e con il database acceso:
+
+```powershell
+Get-ChildItem db\migrations\*.sql | Sort-Object Name | ForEach-Object { Get-Content $_.FullName -Raw | docker compose exec -T db mysql -uturnogiusto -pturnogiusto turnogiusto }
+```
+
+Gli script si possono rieseguire senza errori. Quelli dello Sprint 2: `03` (camerieri a cena nel weekend), `04` (disponibilità dei part-time e contratti di Paolo Blu e Nicolò Ferri), `05` (tabella `piano_festivo`). Una nuova modifica allo schema o ai dati di prova va scritta **sia** in `db/init` **sia** come nuovo script numerato in `db/migrations`.
+
 ### Accesso e permessi
 All'avvio si fa l'accesso. Ci sono due tipi di utente (`TipoUtente`, da non confondere con il ruolo di lavoro `Ruolo`):
 
@@ -154,7 +171,7 @@ All'avvio si fa l'accesso. Ci sono due tipi di utente (`TipoUtente`, da non conf
 | Titolare | `titolare` | `titolare123` |
 | Ognuno dei 18 dipendenti | `nome.cognome` (senza accenti, minuscolo: `mario.rossi`, `nicolo.ferri`) | `dipendente123` |
 
-Esempi: `sara.neri` è part-time (vede anche "Le mie disponibilità"), `anna.gialli` è a tempo pieno, `nicolo.ferri` è part-time senza disponibilità inserite.
+Esempi: `sara.neri` è part-time (vede anche "Le mie disponibilità"), `anna.gialli` e `paolo.blu` sono a tempo pieno, `nicolo.ferri` è part-time da 24 ore.
 
 Come funziona, in breve:
 - Le password **non sono salvate**: nel database c'è solo l'hash (PBKDF2 con sale, `PasswordHasher`). Il messaggio d'errore è lo stesso per "nome inesistente" e "password sbagliata".
@@ -182,6 +199,7 @@ Come funziona, in breve:
 | "JavaFX runtime components are missing" | Si è avviato con il Play standard: usare `javafx:run` dal pannello Maven. |
 | `mvnw` dice che non trova `JAVA_HOME` | Impostare la variabile d'ambiente `JAVA_HOME` sulla cartella della JDK 21 e riavviare IntelliJ. |
 | Dopo un `pull` mancano classi o dipendenze | Pannello Maven, *Reload All Maven Projects*. |
+| Dopo un `git pull` mancano tabelle o dati nuovi (per esempio `Table 'turnogiusto.piano_festivo' doesn't exist`) | Il database è di una versione precedente: eseguire le migrazioni (sezione Database) oppure `docker compose down -v` e `docker compose up -d --wait`. |
 | Ho cambiato lo schema ma il database non cambia | Gli script partono solo alla creazione: `docker compose down -v` e poi `docker compose up -d --wait`. |
 | `mvnw test` fallisce con "MySQL Server locale non trovato" | I test del database cercano un MySQL Server installato sul PC. Se non c'è, escluderli con `.\mvnw test -DexcludedGroups=database`. |
 ---
