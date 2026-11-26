@@ -153,6 +153,30 @@ public class GenerazioneTurniService {
         }
 
         PianoSettimanale piano = new PianoSettimanale(lunedi, turni);
+        if (piano.postiScoperti() > 0) {
+            List<List<Integer>> candidati = new ArrayList<>();
+            for (Turno turno : turni) {
+                List<Integer> idonei = new ArrayList<>();
+                for (Dipendente dipendente : dati.perGiorno().get(turno.inizio().toLocalDate())) {
+                    Contratto contratto = dipendente.getContratto();
+                    AssegnazioneTurno candidata = new AssegnazioneTurno(dipendente.getId(), turno.inizio(), turno.fine());
+                    if (dipendente.getRuolo() == turno.ruolo() && contratto != null
+                            && contratto.isValidoIl(turno.inizio().toLocalDate())
+                            && !haSovrapposizioni(candidata, storico)
+                            && copreTurno(dipendente, candidata, finestrePerDipendente)) {
+                        idonei.add(dipendente.getId());
+                    }
+                }
+                candidati.add(List.copyOf(idonei));
+            }
+            piano = new OttimizzatoreCopertura(candidati, tentativo -> {
+                List<AssegnazioneTurno> assegnazioni = tentativo.assegnazioni();
+                for (int i = 0; i < assegnazioni.size(); i++) {
+                    if (haSovrapposizioni(assegnazioni.get(i), assegnazioni.subList(0, i))) return false;
+                }
+                return verificatore == null || verifica(tentativo, storico, dati.contratti()).isEmpty();
+            }).ottimizza(piano);
+        }
         List<String> violazioni = verificatore == null ? List.of() : verifica(piano, storico, dati.contratti());
         return new Esito(piano, dati.nomi(), verificatore != null, violazioni);
     }
@@ -256,6 +280,11 @@ public class GenerazioneTurniService {
 
     private boolean nellaSettimana(LocalDate lunedi, LocalDate giorno) {
         return !giorno.isBefore(lunedi) && giorno.isBefore(lunedi.plusWeeks(1));
+    }
+
+    /** Stesso controllo di disponibilita per generazione e modifica manuale. */
+    public boolean copreDisponibilita(Dipendente dipendente, AssegnazioneTurno turno) throws SQLException {
+        return copreTurno(dipendente, turno, new HashMap<>());
     }
 
     /** Un part-time deve coprire tutto l'intervallo, anche con più fasce senza interruzioni. */

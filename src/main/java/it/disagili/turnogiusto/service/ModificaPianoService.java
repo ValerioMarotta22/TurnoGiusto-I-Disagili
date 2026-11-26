@@ -33,7 +33,8 @@ import java.util.regex.Matcher;
  * Regole che il service fa rispettare (sono errori: la modifica NON si applica):
  *   - la riga e la persona indicate devono far parte del piano;
  *   - il nuovo dipendente esiste, ha il ruolo della riga e un contratto valido nel giorno del turno;
- *   - non e' gia' in quella riga e non ha un altro turno che si sovrappone.
+ *   - non e' gia' in quella riga e non ha un altro turno che si sovrappone;
+ *   - per i part-time, le disponibilita coprono l'intero turno.
  * Le regole di US07 (11 ore di riposo, monte ore...) invece NON bloccano: si mostrano come
  * violazioni e decide il titolare, come dice il criterio di US07.
  */
@@ -60,6 +61,7 @@ public class ModificaPianoService {
     private final DipendenteRepository dipendenti;
     private final VerificaPiano verificaPiano;
     private final GenerazioneTurniService generazione; // null nei test che non generano piani
+    private final GenerazioneTurniService controlloDisponibilita;
 
     // Configurazione normale: usa i controlli di Antonio (US07) tramite l'adattatore.
     public ModificaPianoService() {
@@ -88,6 +90,7 @@ public class ModificaPianoService {
         this.dipendenti = Objects.requireNonNull(dipendenti);
         this.verificaPiano = Objects.requireNonNull(verificaPiano);
         this.generazione = generazione;
+        this.controlloDisponibilita = generazione != null ? generazione : new GenerazioneTurniService();
     }
 
     // ======================================================================
@@ -211,7 +214,9 @@ public class ModificaPianoService {
             boolean idoneo = dipendente.getRuolo() == attuale.ruolo()
                     && dipendente.getContratto() != null
                     && !giaNellaRiga(attuale, dipendente.getId())
-                    && !sovrappostoAltrove(piano, indice, attuale, dipendente.getId());
+                    && !sovrappostoAltrove(piano, indice, attuale, dipendente.getId())
+                    && controlloDisponibilita.copreDisponibilita(dipendente,
+                            new AssegnazioneTurno(dipendente.getId(), attuale.inizio(), attuale.fine()));
             if (idoneo) {
                 risultato.add(dipendente);
             }
@@ -278,6 +283,12 @@ public class ModificaPianoService {
         if (sovrappostoAltrove(piano, indice, attuale, nuovoId)) {
             throw new ModificaPianoException(nuovo.getNomeCompleto()
                     + " ha già un altro turno che si sovrappone a questo");
+        }
+
+        if (!controlloDisponibilita.copreDisponibilita(nuovo,
+                new AssegnazioneTurno(nuovoId, attuale.inizio(), attuale.fine()))) {
+            throw new ModificaPianoException(nuovo.getNomeCompleto()
+                    + " non ha disponibilita che coprano l'intero turno");
         }
 
         // PASSO 4 - costruisco la riga nuova: copio le assegnazioni, sostituendo (o aggiungendo) quella richiesta.
